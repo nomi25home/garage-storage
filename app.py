@@ -67,7 +67,7 @@ def get_db():
     return conn
 
 
-def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int):
+def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int, item_id: int = None):
     """Sends background webhook notification to n8n for Google Sheets sync."""
     conn = get_db()
     cursor = conn.cursor()
@@ -81,6 +81,7 @@ def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int):
         "name": name,
         "category": category,
         "quantity": quantity,
+        "item_id": item_id,
         "zone": bin_info["zone"] if bin_info else "Unknown",
         "shelf": bin_info["shelf_number"] if bin_info else "Unknown",
         "bin_url": bin_url,
@@ -222,7 +223,7 @@ async def web_add_item(
     item_id = cursor.lastrowid
     conn.commit()
     conn.close()
-    background_tasks.add_task(trigger_n8n_sync, bin_id, name, category, qty)
+    background_tasks.add_task(trigger_n8n_sync, bin_id, name, category, qty, item_id)
     return JSONResponse({"ok": True, "item_id": item_id})
 
 
@@ -300,6 +301,44 @@ async def serve_photo(filename: str):
     if not filepath.exists():
         return JSONResponse({"error": "Not found"}, status_code=404)
     return FileResponse(str(filepath))
+
+
+@app.post("/api/sync-row")
+async def sync_row_from_sheet(request: Request):
+    """Called by n8n to create items sourced from Google Sheets (no webhook fired to avoid loop)."""
+    data = await request.json()
+    bin_id = str(data.get("bin_id", "")).strip()
+    name = str(data.get("name", "")).strip()
+    category = str(data.get("category", "")).strip()
+    try:
+        quantity = int(float(str(data.get("quantity", 1))))
+    except (ValueError, TypeError):
+        quantity = 1
+    zone = str(data.get("zone", "")).strip() or "Unknown"
+    shelf = str(data.get("shelf", "")).strip() or "Unknown"
+
+    if not bin_id or not name or not category:
+        return JSONResponse({"error": "bin_id, name, and category are required"}, status_code=400)
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT bin_id FROM bins WHERE bin_id = ?", (bin_id,))
+    if not cursor.fetchone():
+        conn.execute(
+            "INSERT INTO bins (bin_id, zone, shelf_number, color_code) VALUES (?, ?, ?, ?)",
+            (bin_id, zone, shelf, "Unknown"),
+        )
+        conn.commit()
+
+    cursor.execute(
+        "INSERT INTO items (bin_id, name, category, quantity) VALUES (?, ?, ?, ?)",
+        (bin_id, name, category, quantity),
+    )
+    item_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    print(f"Sheet→App sync: '{name}' x{quantity} → {bin_id} (item_id={item_id})")
+    return JSONResponse({"ok": True, "item_id": item_id})
 
 
 @app.get("/export/{file_type}")
