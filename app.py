@@ -49,6 +49,7 @@ def init_db():
     for stmt in [
         "ALTER TABLE items ADD COLUMN item_photo TEXT",
         "ALTER TABLE bins ADD COLUMN bin_photo TEXT",
+        "ALTER TABLE items ADD COLUMN tags TEXT DEFAULT ''",
     ]:
         try:
             conn.execute(stmt)
@@ -242,6 +243,28 @@ async def delete_bin(bin_id: str):
         if p.exists():
             p.unlink()
     conn.execute("DELETE FROM bins WHERE bin_id = ?", (bin_id,))
+    conn.commit()
+    conn.close()
+    return JSONResponse({"ok": True})
+
+
+@app.patch("/update-item/{item_id}")
+async def update_item(item_id: int, request: Request):
+    data = await request.json()
+    name = str(data.get("name", "")).strip()
+    category = str(data.get("category", "")).strip()
+    try:
+        quantity = int(data.get("quantity", 1))
+    except (ValueError, TypeError):
+        quantity = 1
+    tags = ",".join(t.strip().lower() for t in str(data.get("tags", "")).split(",") if t.strip())
+    if not name or not category:
+        return JSONResponse({"error": "name and category required"}, status_code=400)
+    conn = get_db()
+    conn.execute(
+        "UPDATE items SET name=?, category=?, quantity=?, tags=? WHERE item_id=?",
+        (name, category, quantity, tags, item_id),
+    )
     conn.commit()
     conn.close()
     return JSONResponse({"ok": True})
