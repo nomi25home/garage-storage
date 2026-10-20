@@ -221,6 +221,7 @@ let ITEMS = [];
 let selected = null;
 let query = "";
 let filterZone = "all";
+let filterBin = "all";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -272,13 +273,21 @@ function render() {
   document.documentElement.style.setProperty("--strip-h", $("strip").offsetHeight + "px");
 
   const allZones = ["all", ...zoneList];
-  $("filters").innerHTML = "ZONE " + allZones.map(z => {
+  const zoneBins = filterZone === "all" ? BINS : BINS.filter(b => b.zone === filterZone);
+  const zoneChips = "ZONE " + allZones.map(z => {
     const label = z === "all" ? `All (${BINS.length})` : `${esc(z)} (${BINS.filter(b => b.zone === z).length})`;
     return `<button class="chip ${z === filterZone ? "on" : ""}" onclick="setZone('${esc(z)}')">${label}</button>`;
   }).join("");
+  const binChips = zoneBins.length
+    ? `<span style="margin-left:8px;color:var(--outline-var)">|</span> BOX ` + zoneBins.map(b => {
+        const cnt = ITEMS.filter(i => i.bin_id === b.bin_id).length;
+        return `<button class="chip ${b.bin_id === filterBin ? "on" : ""}" onclick="setBin('${esc(b.bin_id)}')">${esc(b.bin_id)} <span style="opacity:.7">${cnt}</span></button>`;
+      }).join("")
+    : "";
+  $("filters").innerHTML = zoneChips + binChips;
 
-  const visibleBins = filterZone === "all" ? BINS.map(b => b.bin_id) : BINS.filter(b => b.zone === filterZone).map(b => b.bin_id);
-  const list = ITEMS.filter(i => visibleBins.includes(i.bin_id));
+  const visibleBins = zoneBins.map(b => b.bin_id);
+  const list = ITEMS.filter(i => visibleBins.includes(i.bin_id) && (filterBin === "all" || i.bin_id === filterBin));
 
   $("rows").innerHTML = list.map(item => {
     const sel = selected && BINS.find(b => b.bin_id === item.bin_id) && item.bin_id === selected;
@@ -298,12 +307,14 @@ function render() {
 
 function select(binId) {
   selected = binId;
+  filterBin = binId;
   render();
   $("drawer").classList.add("open");
 }
 
 function closeDrawer() {
   selected = null;
+  filterBin = "all";
   $("drawer").classList.remove("open");
   render();
 }
@@ -373,7 +384,14 @@ function renderDrawer() {
     </div>`;
 }
 
-function setZone(z) { filterZone = z; render(); }
+function setZone(z) { filterZone = z; filterBin = "all"; selected = null; $("drawer").classList.remove("open"); render(); }
+function setBin(binId) {
+  if (filterBin === binId) {
+    filterBin = "all"; selected = null; $("drawer").classList.remove("open");
+  } else {
+    filterBin = binId; select(binId);
+  }
+}
 
 function openAllBins() {
   const rows = BINS.map(b => {
@@ -413,7 +431,7 @@ function goHome(e) {
   e.preventDefault();
   query = ""; $("q").value = "";
   selected = null; $("drawer").classList.remove("open");
-  filterZone = "all";
+  filterZone = "all"; filterBin = "all";
   render();
   return false;
 }
