@@ -195,7 +195,7 @@ async def web_add_bin(
 ):
     conn = get_db()
     try:
-        conn.execute("INSERT INTO bins VALUES (?, ?, ?, ?)", (bin_id, zone, shelf, color))
+        conn.execute("INSERT INTO bins (bin_id, zone, shelf_number, color_code) VALUES (?, ?, ?, ?)", (bin_id, zone, shelf, color))
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
