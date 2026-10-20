@@ -46,6 +46,13 @@ def init_db():
         )
     ''')
     conn.commit()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS tag_colors (
+            tag_name TEXT PRIMARY KEY,
+            hex TEXT NOT NULL
+        )
+    ''')
+    conn.commit()
     for stmt in [
         "ALTER TABLE items ADD COLUMN item_photo TEXT",
         "ALTER TABLE bins ADD COLUMN bin_photo TEXT",
@@ -93,6 +100,31 @@ def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int, item_
         print(f"n8n Sync Status: {response.status_code}")
     except Exception as e:
         print(f"Could not forward data to n8n webhook: {e}")
+
+
+@app.get("/api/tag-colors")
+async def get_tag_colors():
+    conn = get_db()
+    rows = conn.execute("SELECT tag_name, hex FROM tag_colors").fetchall()
+    conn.close()
+    return {r["tag_name"]: r["hex"] for r in rows}
+
+
+@app.post("/api/tag-colors")
+async def set_tag_color(request: Request):
+    data = await request.json()
+    tag = str(data.get("tag", "")).strip().lower()
+    hex_val = str(data.get("hex", "")).strip()
+    if not tag or not hex_val.startswith("#"):
+        return JSONResponse({"error": "tag and hex required"}, status_code=400)
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO tag_colors (tag_name, hex) VALUES (?, ?) ON CONFLICT(tag_name) DO UPDATE SET hex=excluded.hex",
+        (tag, hex_val),
+    )
+    conn.commit()
+    conn.close()
+    return JSONResponse({"ok": True})
 
 
 @app.get("/api/bins")

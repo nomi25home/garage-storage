@@ -235,9 +235,21 @@ const TAG_PALETTE = {
   diwali:    {bg:'rgba(155,89,182,.15)',b:'rgba(155,89,182,.4)',t:'#9b59b6'},
 };
 const TAG_DEF = {bg:'rgba(76,215,246,.1)',b:'rgba(76,215,246,.3)',t:'var(--primary)'};
+const SWATCH_COLORS = [
+  {label:'Red',    hex:'#e74c3c'},{label:'Orange', hex:'#e67e22'},{label:'Amber',  hex:'#f0a500'},
+  {label:'Yellow', hex:'#f1c40f'},{label:'Lime',   hex:'#2ecc71'},{label:'Teal',   hex:'#1abc9c'},
+  {label:'Cyan',   hex:'#4cd7f6'},{label:'Blue',   hex:'#3498db'},{label:'Indigo', hex:'#5c6bc0'},
+  {label:'Purple', hex:'#9b59b6'},{label:'Pink',   hex:'#e91e8c'},{label:'Gray',   hex:'#869397'},
+];
+let TAG_COLORS_USER = {};
 
+function hexAlpha(hex, alpha) { return hex + Math.round(alpha * 255).toString(16).padStart(2, '0'); }
 function parseTags(s) { return (s||'').split(',').map(t=>t.trim()).filter(Boolean); }
-function tagColor(t) { return TAG_PALETTE[t.toLowerCase()] || TAG_DEF; }
+function tagColor(t) {
+  const lower = t.toLowerCase();
+  if (TAG_COLORS_USER[lower]) { const h = TAG_COLORS_USER[lower]; return {bg:hexAlpha(h,.12),b:hexAlpha(h,.4),t:h}; }
+  return TAG_PALETTE[lower] || TAG_DEF;
+}
 function tagChip(t, size) {
   const c = tagColor(t), fs = size==='xs'?'9px':'10px', p = size==='xs'?'1px 5px':'2px 7px';
   return `<span style="display:inline-flex;align-items:center;padding:${p};border-radius:3px;font:600 ${fs} var(--mono);background:${c.bg};border:1px solid ${c.b};color:${c.t}">${esc(t)}</span>`;
@@ -264,7 +276,13 @@ async function api(path, opts = {}) {
 
 async function load() {
   try {
-    [BINS, ITEMS] = await Promise.all([api("/api/bins"), api("/api/items?search=" + encodeURIComponent(query))]);
+    const [bins, items, colors] = await Promise.all([
+      api("/api/bins"),
+      api("/api/items?search=" + encodeURIComponent(query)),
+      api("/api/tag-colors").catch(() => ({})),
+    ]);
+    BINS = bins; ITEMS = items;
+    Object.assign(TAG_COLORS_USER, colors);
     render();
   } catch (e) {
     toast("Load failed: " + e.message, true);
@@ -312,7 +330,10 @@ function render() {
         return `<button class="chip ${active ? 'on' : ''}" style="${st}" onclick="toggleTag('${esc(t)}')">${esc(t)}</button>`;
       }).join('')
     : '';
-  $("filters").innerHTML = zoneChips + binChips + tagChipsHtml;
+  const paletteBtn = allTags.length
+    ? ` <button class="icon-btn" title="Customize tag colors" onclick="openTagColors()" style="height:20px;padding:0 3px"><span class="ms" style="font-size:15px;color:var(--outline)">palette</span></button>`
+    : '';
+  $("filters").innerHTML = zoneChips + binChips + tagChipsHtml + paletteBtn;
 
   const visibleBins = zoneBins.map(b => b.bin_id);
   const list = ITEMS.filter(i =>
@@ -448,6 +469,45 @@ function openAllBins() {
     <div class="mf">
       <button class="btn primary" onclick="closeModal();openAddBin()"><span class="ms">add</span>Register New Box</button>
     </div>`);
+}
+
+function openTagColors() {
+  const allTags = [...new Set(ITEMS.flatMap(i => parseTags(i.tags)))].sort();
+  if (!allTags.length) { toast('No tags yet — add tags to items first'); return; }
+  const rows = allTags.map(tag => {
+    const c = tagColor(tag);
+    const swatches = SWATCH_COLORS.map(s => {
+      const cur = TAG_COLORS_USER[tag];
+      const active = cur ? cur === s.hex : (TAG_PALETTE[tag] && TAG_PALETTE[tag].t === s.hex);
+      return `<button title="${s.label}" onclick="setTagColor('${esc(tag)}','${s.hex}')"
+        style="width:20px;height:20px;border-radius:50%;background:${s.hex};border:2px solid ${active?'white':'transparent'};outline:${active?'2px solid '+s.hex:'none'};outline-offset:1px;cursor:pointer;flex-shrink:0"></button>`;
+    }).join('');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(61,73,76,.3)">
+      <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:3px;font:600 11px var(--mono);background:${c.bg};border:1px solid ${c.b};color:${c.t};min-width:90px;flex-shrink:0">${esc(tag)}</span>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">${swatches}</div>
+    </div>`;
+  }).join('');
+  modal(`
+    <div class="mh">
+      <div><h2>Tag Colors</h2><p>Choose a color for each tag — applied everywhere</p></div>
+      <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button>
+    </div>
+    <div style="padding:12px;max-height:60vh;overflow-y:auto">${rows}</div>
+    <div class="mf"><button class="btn primary" onclick="closeModal()">Done</button></div>`);
+}
+
+async function setTagColor(tag, hex) {
+  TAG_COLORS_USER[tag] = hex;
+  try {
+    await api('/api/tag-colors', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tag, hex}),
+    });
+  } catch(e) { toast('Color save failed: ' + e.message, true); }
+  openTagColors();
+  render();
+  if (selected) renderDrawer();
 }
 
 function goHome(e) {
