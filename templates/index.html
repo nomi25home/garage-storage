@@ -193,9 +193,11 @@ select.in { cursor: pointer; }
 <div class="layout">
   <div class="table-wrap" id="tableWrap">
     <div class="filters" id="filters"></div>
+    <div id="bulkBar" hidden></div>
     <table>
       <thead>
         <tr>
+          <th style="width:32px;padding:8px 4px 8px 12px"><input type="checkbox" id="chkAll" onchange="toggleAllItems(this.checked)" style="cursor:pointer;accent-color:var(--primary)"></th>
           <th style="width:220px">Item</th>
           <th style="width:70px">Qty</th>
           <th style="width:120px">Box</th>
@@ -223,6 +225,8 @@ let query = "";
 let filterZone = "all";
 let filterBin = "all";
 let filterTags = new Set();
+let selectedItems = new Set();
+let bulkTags = [];
 let editingItemId = null;
 let editingTags = [];
 let editingVals = {name: '', category: '', quantity: 1};
@@ -343,14 +347,17 @@ function render() {
   );
 
   $("rows").innerHTML = list.map(item => {
-    const sel = selected && BINS.find(b => b.bin_id === item.bin_id) && item.bin_id === selected;
+    const sel = selected && item.bin_id === selected;
+    const chk = selectedItems.has(item.item_id);
     return `<tr class="${sel ? "sel" : ""}" onclick="select('${esc(item.bin_id)}')">
+      <td style="padding:8px 4px 8px 12px" onclick="event.stopPropagation()"><input type="checkbox" ${chk ? "checked" : ""} onchange="toggleItemSelect(${item.item_id},this.checked)" style="cursor:pointer;accent-color:var(--primary)"></td>
       <td><strong>${esc(item.name)}</strong><span class="sub">${esc(item.category)}</span>${parseTags(item.tags).length ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${parseTags(item.tags).map(t=>tagChip(t,'xs')).join('')}</div>` : ''}</td>
       <td class="mono" style="color:var(--on-var)">${item.quantity}</td>
       <td><span class="tag bin">${esc(item.bin_id)}</span></td>
       <td class="col-zone"><span style="font:11px var(--mono);color:var(--outline)">Zone ${esc(item.zone)} · ${esc(item.shelf_number)}</span></td>
     </tr>`;
   }).join("");
+  renderBulkBar(list);
 
   $("empty").hidden = list.length > 0;
   $("footLeft").textContent = `${list.length} item${list.length === 1 ? "" : "s"}${query ? ` matching "${query}"` : ""}`;
@@ -429,7 +436,7 @@ function renderDrawer() {
 }
 
 function toggleTag(tag) { filterTags.has(tag) ? filterTags.delete(tag) : filterTags.add(tag); render(); }
-function setZone(z) { filterZone = z; filterBin = "all"; filterTags = new Set(); selected = null; editingItemId = null; $("drawer").classList.remove("open"); render(); }
+function setZone(z) { filterZone = z; filterBin = "all"; filterTags = new Set(); selected = null; editingItemId = null; selectedItems = new Set(); bulkTags = []; $("drawer").classList.remove("open"); render(); }
 function setBin(binId) {
   if (filterBin === binId) {
     filterBin = "all"; selected = null; editingItemId = null; $("drawer").classList.remove("open");
@@ -469,6 +476,81 @@ function openAllBins() {
     <div class="mf">
       <button class="btn primary" onclick="closeModal();openAddBin()"><span class="ms">add</span>Register New Box</button>
     </div>`);
+}
+
+function renderBulkBar(list) {
+  const bar = $("bulkBar");
+  if (selectedItems.size === 0) { bar.hidden = true; bar.innerHTML = ''; return; }
+  const allChecked = list.length > 0 && list.every(i => selectedItems.has(i.item_id));
+  const chkAll = $("chkAll"); if (chkAll) chkAll.checked = allChecked;
+  const allKnownTags = [...new Set(ITEMS.flatMap(i => parseTags(i.tags)))].sort();
+  const presetChips = [...new Set([...PRESET_TAGS, ...allKnownTags])].map(t => {
+    const active = bulkTags.includes(t), c = tagColor(t);
+    const st = active ? `border-color:${c.b};color:${c.t};background:${c.bg}` : '';
+    return `<button class="chip" style="height:22px;${st}" onclick="toggleBulkTag('${esc(t)}')">${esc(t)}</button>`;
+  }).join('');
+  bar.hidden = false;
+  bar.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 20px;background:rgba(76,215,246,.07);border-bottom:1px solid rgba(76,215,246,.25);font:600 10px var(--mono);letter-spacing:.05em">
+    <span style="color:var(--primary);white-space:nowrap">✓ ${selectedItems.size} selected</span>
+    <button class="btn" onclick="toggleAllItems(${allChecked})" style="height:22px;font-size:9px">${allChecked ? 'Deselect all' : 'Select all '+list.length}</button>
+    <button class="btn danger" onclick="clearSelection()" style="height:22px;font-size:9px">Clear</button>
+    <span style="color:var(--outline-var);margin:0 2px">|</span>
+    <span style="color:var(--on-var)">ADD TAGS</span>
+    ${presetChips}
+    <input class="in" id="_bulkTagInput" placeholder="custom tag…" style="height:22px;width:100px;font-size:10px" onkeydown="if(event.key==='Enter'){event.preventDefault();addBulkTagFromInput()}">
+    <button class="btn primary" onclick="applyBulkTags()" style="height:22px;font-size:9px" ${bulkTags.length===0?'disabled':''}>
+      <span class="ms" style="font-size:13px">label</span>Apply to ${selectedItems.size}
+    </button>
+  </div>`;
+}
+
+function toggleItemSelect(itemId, checked) {
+  if (checked) selectedItems.add(itemId); else selectedItems.delete(itemId);
+  renderBulkBar(ITEMS.filter(i => {
+    const zoneBins = filterZone === 'all' ? BINS : BINS.filter(b => b.zone === filterZone);
+    return zoneBins.map(b=>b.bin_id).includes(i.bin_id) && (filterBin==='all'||i.bin_id===filterBin) && (filterTags.size===0||parseTags(i.tags).some(t=>filterTags.has(t)));
+  }));
+}
+
+function toggleAllItems(allCurrentlyChecked) {
+  const zoneBins = filterZone === 'all' ? BINS : BINS.filter(b => b.zone === filterZone);
+  const list = ITEMS.filter(i => zoneBins.map(b=>b.bin_id).includes(i.bin_id) && (filterBin==='all'||i.bin_id===filterBin) && (filterTags.size===0||parseTags(i.tags).some(t=>filterTags.has(t))));
+  if (allCurrentlyChecked) { list.forEach(i => selectedItems.delete(i.item_id)); }
+  else { list.forEach(i => selectedItems.add(i.item_id)); }
+  render();
+}
+
+function clearSelection() { selectedItems = new Set(); bulkTags = []; render(); }
+
+function toggleBulkTag(tag) {
+  const idx = bulkTags.indexOf(tag);
+  if (idx >= 0) bulkTags.splice(idx, 1); else bulkTags.push(tag);
+  const zoneBins = filterZone === 'all' ? BINS : BINS.filter(b => b.zone === filterZone);
+  renderBulkBar(ITEMS.filter(i => zoneBins.map(b=>b.bin_id).includes(i.bin_id) && (filterBin==='all'||i.bin_id===filterBin) && (filterTags.size===0||parseTags(i.tags).some(t=>filterTags.has(t)))));
+}
+
+function addBulkTagFromInput() {
+  const inp = $("_bulkTagInput");
+  const val = (inp ? inp.value.trim().toLowerCase() : '').replace(/[^a-z0-9_-]/g, '');
+  if (!val || bulkTags.includes(val)) { if (inp) inp.value = ''; return; }
+  bulkTags.push(val);
+  if (inp) inp.value = '';
+  const zoneBins = filterZone === 'all' ? BINS : BINS.filter(b => b.zone === filterZone);
+  renderBulkBar(ITEMS.filter(i => zoneBins.map(b=>b.bin_id).includes(i.bin_id) && (filterBin==='all'||i.bin_id===filterBin) && (filterTags.size===0||parseTags(i.tags).some(t=>filterTags.has(t)))));
+}
+
+async function applyBulkTags() {
+  if (!bulkTags.length || !selectedItems.size) return;
+  try {
+    const res = await api('/api/bulk-tag', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({item_ids: [...selectedItems], tags: bulkTags}),
+    });
+    toast(`Tags added to ${res.updated} item${res.updated===1?'':'s'}`);
+    selectedItems = new Set(); bulkTags = [];
+    await load();
+  } catch(e) { toast('Bulk tag failed: ' + e.message, true); }
 }
 
 function openTagColors() {
@@ -515,7 +597,7 @@ function goHome(e) {
   e.preventDefault();
   query = ""; $("q").value = "";
   selected = null; $("drawer").classList.remove("open");
-  filterZone = "all"; filterBin = "all"; filterTags = new Set(); editingItemId = null;
+  filterZone = "all"; filterBin = "all"; filterTags = new Set(); editingItemId = null; selectedItems = new Set(); bulkTags = [];
   render();
   return false;
 }

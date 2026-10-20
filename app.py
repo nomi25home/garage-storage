@@ -102,6 +102,26 @@ def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int, item_
         print(f"Could not forward data to n8n webhook: {e}")
 
 
+@app.post("/api/bulk-tag")
+async def bulk_tag(request: Request):
+    data = await request.json()
+    item_ids = [int(i) for i in data.get("item_ids", []) if str(i).isdigit()]
+    tags = [t.strip().lower() for t in data.get("tags", []) if t.strip()]
+    if not item_ids or not tags:
+        return JSONResponse({"error": "item_ids and tags required"}, status_code=400)
+    conn = get_db()
+    for item_id in item_ids:
+        row = conn.execute("SELECT tags FROM items WHERE item_id=?", (item_id,)).fetchone()
+        if not row:
+            continue
+        existing = [t.strip() for t in (row["tags"] or "").split(",") if t.strip()]
+        merged = list(dict.fromkeys(existing + tags))
+        conn.execute("UPDATE items SET tags=? WHERE item_id=?", (",".join(merged), item_id))
+    conn.commit()
+    conn.close()
+    return JSONResponse({"ok": True, "updated": len(item_ids)})
+
+
 @app.get("/api/tag-colors")
 async def get_tag_colors():
     conn = get_db()
