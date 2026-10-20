@@ -178,7 +178,7 @@ select.in { cursor: pointer; }
 <!-- ── Main SPA dashboard ── -->
 <header>
   <a class="brand" href="/" onclick="return goHome(event)"><span class="ms">inventory_2</span><span>Garage Storage</span></a>
-  <div class="crumb"><span class="pill" id="crumbCount">…</span></div>
+  <div class="crumb"><button class="pill" id="crumbCount" onclick="openAllBins()" title="View all boxes" style="cursor:pointer;background:var(--high);border:1px solid var(--outline-var);border-radius:3px;padding:2px 6px;font:600 11px var(--mono);color:var(--on-var)">…</button></div>
   <div class="search"><span class="ms">search</span><input id="q" placeholder="Item, category, or box ID…" autocomplete="off"><kbd>/</kbd></div>
   <div class="spacer"></div>
   <button class="btn primary" onclick="openAddBin()"><span class="ms">add</span><span class="hide-sm">Add Box</span></button>
@@ -374,6 +374,39 @@ function renderDrawer() {
 }
 
 function setZone(z) { filterZone = z; render(); }
+
+function openAllBins() {
+  const rows = BINS.map(b => {
+    const items = ITEMS.filter(i => i.bin_id === b.bin_id);
+    const total = items.reduce((s, i) => s + i.quantity, 0);
+    const photo = b.bin_photo
+      ? `<img src="/photos/${esc(b.bin_photo)}" style="width:36px;height:36px;object-fit:cover;border-radius:3px;border:1px solid var(--outline-var);flex-shrink:0">`
+      : `<span class="ms" style="font-size:28px;color:var(--outline);flex-shrink:0">inventory_2</span>`;
+    return `<div onclick="closeModal();select('${esc(b.bin_id)}')" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:3px;cursor:pointer;border:1px solid var(--outline-var);background:var(--lowest);transition:background .1s" onmouseover="this.style.background='var(--high)'" onmouseout="this.style.background='var(--lowest)'">
+      ${photo}
+      <div style="flex:1;min-width:0">
+        <div style="font:600 13px var(--mono);color:var(--primary)">${esc(b.bin_id)}</div>
+        <div style="font:11px var(--mono);color:var(--outline);margin-top:2px">Zone ${esc(b.zone)} · ${esc(b.shelf_number)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font:600 14px var(--mono);color:var(--on)">${items.length}</div>
+        <div style="font:10px var(--mono);color:var(--outline)">${total} qty</div>
+      </div>
+      <span class="ms" style="color:var(--outline);font-size:16px">chevron_right</span>
+    </div>`;
+  }).join("");
+  modal(`
+    <div class="mh">
+      <div><h2>All Boxes</h2><p>${BINS.length} box${BINS.length === 1 ? "" : "es"} · click to open</p></div>
+      <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button>
+    </div>
+    <div style="padding:12px;display:grid;gap:8px;max-height:60vh;overflow-y:auto">
+      ${BINS.length ? rows : '<div class="empty">No boxes yet. Add one first.</div>'}
+    </div>
+    <div class="mf">
+      <button class="btn primary" onclick="closeModal();openAddBin()"><span class="ms">add</span>Register New Box</button>
+    </div>`);
+}
 
 function goHome(e) {
   if (e && (e.metaKey || e.ctrlKey || e.shiftKey)) return true;
