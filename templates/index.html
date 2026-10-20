@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garage Storage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b1326; --lowest: #060e20; --low: #131b2e; --cont: #171f33; --high: #222a3d; --highest: #2d3449; --bright: #31394d;
+  --on: #dae2fd; --on-var: #bcc9cd; --outline: #869397; --outline-var: #3d494c;
+  --primary: #4cd7f6; --primary-cont: #06b6d4; --on-primary-cont: #00424f;
+  --secondary: #c0c1ff; --tertiary: #4edea3; --amber: #f5c26b; --error: #ffb4ab;
+  --mono: "JetBrains Mono", ui-monospace, monospace; --sans: "Geist", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--on); font: 13px/18px var(--sans); }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--primary); text-decoration: none; }
+.ms { font-family: "Material Symbols Outlined"; font-size: 18px; line-height: 1; vertical-align: middle; font-weight: normal; font-style: normal; display: inline-block; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--outline); }
+::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: var(--bg); } ::-webkit-scrollbar-thumb { background: var(--highest); border-radius: 2px; }
+
+header { position: sticky; top: 0; z-index: 30; height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: var(--cont); border-bottom: 1px solid var(--outline-var); }
+.brand { display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; text-decoration: none; }
+.brand:hover { filter: brightness(1.15); }
+.crumb { font: 600 11px var(--mono); color: var(--on-var); display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.pill { padding: 2px 6px; border-radius: 3px; background: var(--high); border: 1px solid var(--outline-var); }
+.search { flex: 1; max-width: 480px; position: relative; }
+.search input { width: 100%; height: 32px; padding: 0 36px 0 32px; background: var(--low); border: 1px solid var(--outline-var); border-radius: 3px; font: 12px var(--mono); }
+.search input:focus { outline: none; border-color: var(--primary); }
+.search .ms { position: absolute; left: 8px; top: 7px; color: var(--outline); }
+.search kbd { position: absolute; right: 8px; top: 8px; font: 600 9px var(--mono); padding: 1px 4px; border: 1px solid var(--outline-var); border-radius: 3px; background: var(--highest); color: var(--on-var); }
+.spacer { flex: 1; }
+.btn { height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; border-radius: 3px; border: 1px solid var(--outline-var); background: var(--high); cursor: pointer; font: 600 11px var(--mono); letter-spacing: .02em; white-space: nowrap; }
+.btn:hover { background: var(--bright); }
+.btn.primary { background: var(--primary-cont); color: var(--on-primary-cont); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--error); border-color: rgba(255,180,171,.35); background: transparent; }
+.btn.danger:hover { background: rgba(147,0,10,.25); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn .ms { font-size: 15px; }
+.icon-btn { background: none; border: 0; padding: 4px; border-radius: 3px; color: var(--outline); cursor: pointer; }
+.icon-btn:hover { background: var(--bright); color: var(--on); }
+
+.strip { padding: 10px 20px; background: var(--low); border-bottom: 1px solid var(--outline-var); }
+.kpis { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; font: 600 11px var(--mono); color: var(--on-var); }
+.kpis strong { font-weight: 600; }
+
+.layout { display: flex; height: calc(100vh - 48px - var(--strip-h, 42px)); }
+.table-wrap { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; }
+.filters { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 7px 20px; background: var(--cont); border-bottom: 1px solid var(--outline-var); font: 600 10px var(--mono); letter-spacing: .06em; }
+.chip { height: 24px; padding: 0 8px; border-radius: 3px; border: 1px solid var(--outline-var); background: var(--low); color: var(--on-var); cursor: pointer; font: 600 10px var(--mono); letter-spacing: .04em; }
+.chip.on { border-color: var(--primary); color: var(--primary); background: var(--high); }
+table { width: 100%; border-collapse: collapse; }
+thead th { position: sticky; top: 39px; z-index: 4; background: var(--high); color: var(--on-var); text-align: left; padding: 8px 12px; font: 600 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid var(--outline-var); }
+tbody tr { border-bottom: 1px solid rgba(61,73,76,.4); cursor: pointer; background: var(--lowest); }
+tbody tr:hover { background: rgba(23,31,51,.8); }
+tbody tr.sel { background: rgba(34,42,61,.85); box-shadow: inset 2px 0 var(--primary); }
+td { padding: 8px 12px; vertical-align: top; font-size: 12px; line-height: 16px; }
+.tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font: 600 10px var(--mono); letter-spacing: .05em; text-transform: uppercase; border: 1px solid var(--outline-var); background: var(--high); color: var(--on-var); }
+.tag.bin { color: var(--primary); border-color: rgba(76,215,246,.3); background: rgba(76,215,246,.08); }
+.sub { display: block; margin-top: 2px; font: 11px var(--mono); color: var(--outline); }
+.foot { margin-top: auto; padding: 8px 20px; background: var(--low); border-top: 1px solid var(--outline-var); font: 600 10px var(--mono); color: var(--on-var); display: flex; justify-content: space-between; position: sticky; bottom: 0; }
+.empty { padding: 40px; text-align: center; color: var(--outline); font: 12px var(--mono); }
+
+aside.drawer { width: 400px; flex-shrink: 0; overflow-y: auto; background: var(--low); border-left: 1px solid var(--outline-var); display: none; flex-direction: column; }
+aside.drawer.open { display: flex; }
+.dh { padding: 12px; background: var(--cont); border-bottom: 1px solid var(--outline-var); }
+.dh h3 { margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 6px; font-family: var(--mono); }
+.card { margin: 12px 12px 0; background: var(--cont); border: 1px solid var(--outline-var); border-radius: 3px; padding: 10px; }
+.card h4 { margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; font: 600 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--on-var); }
+.inner { background: var(--lowest); border: 1px solid rgba(61,73,76,.6); border-radius: 3px; padding: 8px; }
+.kv { display: grid; grid-template-columns: 80px 1fr; gap: 4px 8px; font: 12px var(--mono); }
+.kv dt { color: var(--outline); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; padding-top: 1px; }
+.kv dd { margin: 0; word-break: break-all; }
+.rec { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid rgba(61,73,76,.35); font: 12px var(--mono); }
+.rec:first-child { border-top: 0; padding-top: 0; }
+.rec small { display: block; font-size: 10px; color: var(--outline); }
+.dfoot { margin-top: auto; padding: 12px; display: flex; gap: 8px; border-top: 1px solid var(--outline-var); background: var(--cont); position: sticky; bottom: 0; }
+.dfoot .btn { flex: 1; justify-content: center; height: 32px; }
+.qr-center { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; }
+.qr-center img { border: 1px solid var(--outline-var); border-radius: 3px; background: white; padding: 4px; }
+
+.modal-bg { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.7); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; padding: 16px; }
+.modal-bg.open { display: flex; }
+.modal { width: 100%; max-width: 480px; background: var(--high); border: 1px solid rgba(76,215,246,.4); border-radius: 3px; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+.mh { padding: 12px; background: var(--cont); border-bottom: 1px solid var(--outline-var); display: flex; justify-content: space-between; align-items: start; }
+.mh h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.mh p { margin: 2px 0 0; font-size: 12px; color: var(--on-var); }
+.mb { padding: 12px; display: grid; gap: 12px; }
+.mf { padding: 12px; background: var(--cont); border-top: 1px solid var(--outline-var); display: flex; justify-content: flex-end; gap: 8px; }
+label.f { display: block; font: 600 11px var(--mono); letter-spacing: .04em; margin-bottom: 4px; color: var(--on-var); }
+.in { width: 100%; height: 32px; padding: 0 10px; background: var(--lowest); border: 1px solid var(--outline-var); border-radius: 3px; font: 12px var(--mono); }
+.in:focus { outline: none; border-color: var(--primary); }
+select.in { cursor: pointer; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.err { color: var(--error); font: 12px var(--mono); }
+
+#toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: grid; gap: 8px; }
+.toast { min-width: 240px; max-width: 400px; padding: 10px 12px; border-radius: 3px; background: var(--highest); border: 1px solid var(--outline-var); border-left: 3px solid var(--tertiary); font: 12px var(--mono); box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+.toast.bad { border-left-color: var(--error); }
+
+/* single-bin mobile view */
+.bin-page { max-width: 520px; margin: 0 auto; padding: 16px; }
+.bin-page .card { margin: 0 0 12px; }
+
+@media (max-width: 900px) {
+  aside.drawer.open { position: fixed; inset: 48px 0 0 auto; width: min(400px, 100vw); z-index: 40; }
+  .crumb, .hide-sm { display: none; }
+}
+@media (max-width: 600px) {
+  header { gap: 8px; padding: 0 12px; }
+  .col-zone { display: none; }
+}
+</style>
+</head>
+<body>
+
+{% if single_bin %}
+<!-- ── Mobile single-bin scan landing page ── -->
+<header>
+  <a class="brand" href="/"><span class="ms">inventory_2</span><span>Garage Storage</span></a>
+  <div class="spacer"></div>
+  <a href="/" class="btn"><span class="ms">arrow_back</span>All Inventory</a>
+</header>
+
+<div class="bin-page">
+  <div class="card" style="margin-bottom:12px">
+    <h4><span class="ms" style="font-size:13px;margin-right:4px">inventory_2</span>{{ single_bin.bin_id }}</h4>
+    <div class="inner">
+      <dl class="kv">
+        <dt>Zone</dt><dd>{{ single_bin.zone }}</dd>
+        <dt>Shelf</dt><dd>{{ single_bin.shelf_number }}</dd>
+        <dt>Container</dt><dd>{{ single_bin.color_code }}</dd>
+        <dt>Items</dt><dd>{{ items | length }}</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <h4>QR Label</h4>
+    <div class="qr-center">
+      {% set deep_link = "http://192.168.74.45:8099/bin/" + single_bin.bin_id %}
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{ deep_link | urlencode }}" width="180" height="180" alt="QR">
+      <span class="mono" style="font-size:14px;font-weight:600;letter-spacing:.06em">{{ single_bin.bin_id }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>Contents ({{ items | length }} items)</h4>
+    {% if items %}
+    <table style="margin-top:0">
+      <thead>
+        <tr><th>Item</th><th>Category</th><th style="width:48px">Qty</th></tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><strong>{{ item.name }}</strong></td>
+          <td><span class="muted">{{ item.category }}</span></td>
+          <td class="mono">{{ item.quantity }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No items in this box yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+<!-- ── Main SPA dashboard ── -->
+<header>
+  <a class="brand" href="/" onclick="return goHome(event)"><span class="ms">inventory_2</span><span>Garage Storage</span></a>
+  <div class="crumb"><span class="pill" id="crumbCount">…</span></div>
+  <div class="search"><span class="ms">search</span><input id="q" placeholder="Item, category, or box ID…" autocomplete="off"><kbd>/</kbd></div>
+  <div class="spacer"></div>
+  <button class="btn primary" onclick="openAddBin()"><span class="ms">add</span><span class="hide-sm">Add Box</span></button>
+  <button class="btn" onclick="openAddItem()"><span class="ms">inventory</span><span class="hide-sm">Pack Item</span></button>
+  <button class="icon-btn" title="Export CSV" onclick="window.location.href='/export/csv'"><span class="ms">download</span></button>
+</header>
+
+<section class="strip" id="strip">
+  <div class="kpis" id="kpis"><span class="muted mono">Loading…</span></div>
+</section>
+
+<div class="layout">
+  <div class="table-wrap" id="tableWrap">
+    <div class="filters" id="filters"></div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:220px">Item</th>
+          <th style="width:70px">Qty</th>
+          <th style="width:120px">Box</th>
+          <th class="col-zone">Location</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>No items match.</div>
+    <div class="foot"><span id="footLeft"></span><span id="footRight"></span></div>
+  </div>
+  <aside class="drawer" id="drawer"></aside>
+</div>
+{% endif %}
+
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal"></div></div>
+<div id="toasts"></div>
+
+{% if not single_bin %}
+<script>
+let BINS = [];
+let ITEMS = [];
+let selected = null;
+let query = "";
+let filterZone = "all";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function toast(msg, bad) {
+  const t = document.createElement("div");
+  t.className = "toast" + (bad ? " bad" : "");
+  t.textContent = msg;
+  $("toasts").appendChild(t);
+  setTimeout(() => t.remove(), bad ? 8000 : 4000);
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  let body = null;
+  try { body = await r.json(); } catch {}
+  if (!r.ok) throw new Error((body && body.error) || `${r.status}`);
+  return body;
+}
+
+async function load() {
+  try {
+    [BINS, ITEMS] = await Promise.all([api("/api/bins"), api("/api/items?search=" + encodeURIComponent(query))]);
+    render();
+  } catch (e) {
+    toast("Load failed: " + e.message, true);
+  }
+}
+
+function zones() {
+  return [...new Set(BINS.map(b => b.zone))].sort();
+}
+
+function render() {
+  const totalBins = BINS.length;
+  const totalItems = ITEMS.reduce((s, i) => s + i.quantity, 0);
+  const zoneList = zones();
+
+  $("crumbCount").textContent = `${totalBins} boxes`;
+  $("kpis").innerHTML = `
+    <span>Boxes <strong style="color:var(--primary)">${totalBins}</strong></span>
+    <span>Items <strong style="color:var(--secondary)">${ITEMS.length}</strong></span>
+    <span>Total qty <strong style="color:var(--tertiary)">${totalItems}</strong></span>
+    <span>Zones <strong style="color:var(--amber)">${zoneList.length}</strong></span>
+    ${zoneList.map(z => {
+      const c = BINS.filter(b => b.zone === z).length;
+      return `<span style="color:var(--outline)">${esc(z)} <strong style="color:var(--on-var)">${c}</strong></span>`;
+    }).join("")}`;
+  document.documentElement.style.setProperty("--strip-h", $("strip").offsetHeight + "px");
+
+  const allZones = ["all", ...zoneList];
+  $("filters").innerHTML = "ZONE " + allZones.map(z => {
+    const label = z === "all" ? `All (${BINS.length})` : `${esc(z)} (${BINS.filter(b => b.zone === z).length})`;
+    return `<button class="chip ${z === filterZone ? "on" : ""}" onclick="setZone('${esc(z)}')">${label}</button>`;
+  }).join("");
+
+  const visibleBins = filterZone === "all" ? BINS.map(b => b.bin_id) : BINS.filter(b => b.zone === filterZone).map(b => b.bin_id);
+  const list = ITEMS.filter(i => visibleBins.includes(i.bin_id));
+
+  $("rows").innerHTML = list.map(item => {
+    const sel = selected && BINS.find(b => b.bin_id === item.bin_id) && item.bin_id === selected;
+    return `<tr class="${sel ? "sel" : ""}" onclick="select('${esc(item.bin_id)}')">
+      <td><strong>${esc(item.name)}</strong><span class="sub">${esc(item.category)}</span></td>
+      <td class="mono" style="color:var(--on-var)">${item.quantity}</td>
+      <td><span class="tag bin">${esc(item.bin_id)}</span></td>
+      <td class="col-zone"><span style="font:11px var(--mono);color:var(--outline)">Zone ${esc(item.zone)} · ${esc(item.shelf_number)}</span></td>
+    </tr>`;
+  }).join("");
+
+  $("empty").hidden = list.length > 0;
+  $("footLeft").textContent = `${list.length} item${list.length === 1 ? "" : "s"}${query ? ` matching "${query}"` : ""}`;
+  $("footRight").textContent = `${BINS.length} box${BINS.length === 1 ? "" : "es"}`;
+  if (selected) renderDrawer();
+}
+
+function select(binId) {
+  selected = binId;
+  render();
+  $("drawer").classList.add("open");
+}
+
+function closeDrawer() {
+  selected = null;
+  $("drawer").classList.remove("open");
+  render();
+}
+
+function renderDrawer() {
+  const bin = BINS.find(b => b.bin_id === selected);
+  if (!bin) return;
+  const items = ITEMS.filter(i => i.bin_id === selected);
+  const total = items.reduce((s, i) => s + i.quantity, 0);
+
+  const itemRows = items.length
+    ? items.map(i => `<div class="rec" style="align-items:start">
+        <div style="display:flex;gap:8px;align-items:center;min-width:0;flex:1">
+          ${i.item_photo ? `<img src="/photos/${esc(i.item_photo)}" style="width:40px;height:40px;object-fit:cover;border-radius:3px;border:1px solid var(--outline-var);flex-shrink:0;cursor:pointer" onclick="viewPhoto('/photos/${esc(i.item_photo)}')">` : ""}
+          <div style="min-width:0"><strong>${esc(i.name)}</strong><small>${esc(i.category)}</small></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
+          <span class="mono" style="color:var(--primary);font-size:13px;margin-right:4px">${i.quantity}</span>
+          <button class="icon-btn" title="Add/update photo" onclick="takeItemPhoto(${i.item_id})"><span class="ms" style="font-size:15px">photo_camera</span></button>
+          <button class="icon-btn" title="Delete item" onclick="deleteItem(${i.item_id},'${esc(i.name)}')"><span class="ms" style="font-size:15px;color:var(--error)">delete</span></button>
+        </div>
+      </div>`).join("")
+    : `<div class="muted mono" style="padding:4px">No items in this box yet.</div>`;
+
+  $("drawer").innerHTML = `
+    <div class="dh">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3><span class="ms" style="color:var(--primary)">inventory_2</span>${esc(bin.bin_id)}</h3>
+        <div style="display:flex;gap:2px">
+          <button class="icon-btn" title="Delete box" onclick="deleteBin('${esc(bin.bin_id)}')"><span class="ms" style="color:var(--error)">delete_forever</span></button>
+          <button class="icon-btn" onclick="closeDrawer()"><span class="ms">close</span></button>
+        </div>
+      </div>
+      <div class="inner" style="margin-top:8px"><dl class="kv">
+        <dt>Zone</dt><dd>${esc(bin.zone)}</dd>
+        <dt>Shelf</dt><dd>${esc(bin.shelf_number)}</dd>
+        <dt>Container</dt><dd>${esc(bin.color_code)}</dd>
+        <dt>Items</dt><dd>${items.length} types · ${total} total qty</dd>
+      </dl></div>
+      <div style="margin-top:8px">
+        ${bin.bin_photo
+          ? `<div style="display:flex;gap:8px;align-items:center">
+               <img src="/photos/${esc(bin.bin_photo)}" style="width:72px;height:72px;object-fit:cover;border-radius:3px;border:1px solid var(--outline-var);cursor:pointer" onclick="viewPhoto('/photos/${esc(bin.bin_photo)}')">
+               <button class="btn" onclick="takeBinPhoto('${esc(bin.bin_id)}')"><span class="ms">photo_camera</span>Update Bin Photo</button>
+             </div>`
+          : `<button class="btn" onclick="takeBinPhoto('${esc(bin.bin_id)}')"><span class="ms">photo_camera</span>Add Bin Photo</button>`}
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>QR Label</h4>
+      <div class="qr-center">
+        <img src="${esc(bin.qr_url)}" width="150" height="150" loading="lazy" alt="QR">
+        <span class="mono" style="font-size:13px;font-weight:600;letter-spacing:.08em">${esc(bin.bin_id)}</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn primary" onclick="printLabel('${esc(bin.bin_id)}', '${esc(bin.qr_url)}')"><span class="ms">print</span>Print Label</button>
+          <a href="/bin/${encodeURIComponent(bin.bin_id)}" target="_blank" class="btn"><span class="ms">open_in_new</span>Mobile View</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card"><h4>Contents (${items.length} item types)</h4><div class="inner">${itemRows}</div></div>
+
+    <div style="height:12px"></div>
+    <div class="dfoot">
+      <button class="btn primary" onclick="openAddItem('${esc(bin.bin_id)}')"><span class="ms">add</span>Pack Item Here</button>
+    </div>`;
+}
+
+function setZone(z) { filterZone = z; render(); }
+
+function goHome(e) {
+  if (e && (e.metaKey || e.ctrlKey || e.shiftKey)) return true;
+  e.preventDefault();
+  query = ""; $("q").value = "";
+  selected = null; $("drawer").classList.remove("open");
+  filterZone = "all";
+  render();
+  return false;
+}
+
+function modal(html) {
+  $("modal").innerHTML = html;
+  $("modalBg").classList.add("open");
+  const f = $("modal").querySelector("input,select");
+  if (f) setTimeout(() => f.focus(), 50);
+}
+function closeModal() { $("modalBg").classList.remove("open"); }
+
+function openAddBin() {
+  modal(`
+    <div class="mh"><div><h2>Register New Box</h2><p>Add a storage container to the inventory</p></div>
+      <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
+    <div class="mb">
+      <div><label class="f">Box ID *</label><input class="in" id="bId" placeholder="e.g. BIN-10" autocomplete="off"></div>
+      <div class="row2">
+        <div><label class="f">Zone *</label><input class="in" id="bZone" placeholder="e.g. West Wall" list="zoneList"></div>
+        <div><label class="f">Shelf *</label><input class="in" id="bShelf" placeholder="e.g. Row 2"></div>
+      </div>
+      <datalist id="zoneList">${[...new Set(BINS.map(b => b.zone))].map(z => `<option value="${esc(z)}">`).join("")}</datalist>
+      <div><label class="f">Container Description *</label><input class="in" id="bColor" placeholder="e.g. Large Yellow Lid"></div>
+      <div class="err" id="bErr"></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="bSave" onclick="saveAddBin()"><span class="ms">done</span>Register Box</button>
+    </div>`);
+}
+
+async function saveAddBin() {
+  const id = $("bId").value.trim(), zone = $("bZone").value.trim(), shelf = $("bShelf").value.trim(), color = $("bColor").value.trim();
+  if (!id || !zone || !shelf || !color) { $("bErr").textContent = "All fields are required"; return; }
+  $("bSave").disabled = true;
+  const fd = new FormData();
+  fd.append("bin_id", id); fd.append("zone", zone); fd.append("shelf", shelf); fd.append("color", color);
+  try {
+    await api("/add-bin", { method: "POST", body: fd });
+    closeModal();
+    toast(`Box ${id} registered`);
+    await load();
+    select(id);
+  } catch (e) { $("bErr").textContent = e.message; $("bSave").disabled = false; }
+}
+
+function openAddItem(prefillBin) {
+  const opts = BINS.map(b => `<option value="${esc(b.bin_id)}" ${b.bin_id === prefillBin ? "selected" : ""}>${esc(b.bin_id)} — ${esc(b.zone)}</option>`).join("");
+  modal(`
+    <div class="mh"><div><h2>Pack Item</h2><p>Log an item into a storage box</p></div>
+      <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
+    <div class="mb">
+      <div><label class="f">Destination Box *</label>
+        <select class="in" id="iBox"><option value="" disabled ${!prefillBin ? "selected" : ""}>Select box…</option>${opts}</select></div>
+      <div><label class="f">Item Name *</label><input class="in" id="iName" placeholder="e.g. Teflon tape" autocomplete="off"></div>
+      <div class="row2">
+        <div><label class="f">Category *</label><input class="in" id="iCat" placeholder="e.g. Plumbing" list="catList">
+          <datalist id="catList">${[...new Set(ITEMS.map(i => i.category))].map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>
+        <div><label class="f">Quantity *</label><input class="in" id="iQty" type="number" value="1" min="1"></div>
+      </div>
+      <div class="err" id="iErr"></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="iSave" onclick="saveAddItem()"><span class="ms">done</span>Log Item</button>
+    </div>`);
+}
+
+async function saveAddItem() {
+  const bin_id = $("iBox").value, name = $("iName").value.trim(), category = $("iCat").value.trim(), qty = parseInt($("iQty").value);
+  if (!bin_id || !name || !category || !qty) { $("iErr").textContent = "All fields are required"; return; }
+  $("iSave").disabled = true;
+  const fd = new FormData();
+  fd.append("bin_id", bin_id); fd.append("name", name); fd.append("category", category); fd.append("qty", qty);
+  try {
+    await api("/add-item", { method: "POST", body: fd });
+    closeModal();
+    toast(`${name} × ${qty} logged in ${bin_id}`);
+    await load();
+    select(bin_id);
+  } catch (e) { $("iErr").textContent = e.message; $("iSave").disabled = false; }
+}
+
+async function deleteBin(binId) {
+  const items = ITEMS.filter(i => i.bin_id === binId);
+  if (items.length > 0) {
+    toast(`Remove all ${items.length} item(s) from ${binId} first.`, true);
+    return;
+  }
+  if (!confirm(`Permanently delete box "${binId}"? This cannot be undone.`)) return;
+  try {
+    await api(`/delete-bin/${encodeURIComponent(binId)}`, { method: "DELETE" });
+    toast(`Box ${binId} deleted`);
+    closeDrawer();
+    await load();
+  } catch (e) { toast("Delete failed: " + e.message, true); }
+}
+
+async function deleteItem(itemId, name) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  try {
+    await api(`/delete-item/${itemId}`, { method: "DELETE" });
+    toast(`"${name}" removed`);
+    await load();
+    if (selected) renderDrawer();
+  } catch (e) { toast("Delete failed: " + e.message, true); }
+}
+
+function takeItemPhoto(itemId) {
+  const inp = document.getElementById("_itemPhotoInput");
+  inp.dataset.itemId = itemId;
+  inp.click();
+}
+
+function takeBinPhoto(binId) {
+  const inp = document.getElementById("_binPhotoInput");
+  inp.dataset.binId = binId;
+  inp.click();
+}
+
+function viewPhoto(url) {
+  modal(`<div class="mh"><div><h2>Photo</h2></div><button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
+    <div style="padding:12px;text-align:center"><img src="${url}" style="max-width:100%;max-height:70vh;border-radius:3px;border:1px solid var(--outline-var)"></div>`);
+}
+
+async function uploadPhoto(type, id, file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    await api(`/upload-photo/${type}/${id}`, { method: "POST", body: fd });
+    toast("Photo saved");
+    await load();
+    if (selected) renderDrawer();
+  } catch (e) { toast("Upload failed: " + e.message, true); }
+}
+
+function printLabel(binId, qrUrl) {
+  const w = window.open("", "_blank", "width=420,height=480");
+  w.document.write(`<!doctype html><html><head><title>${binId}</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">
+    <div style="text-align:center;font-family:sans-serif;padding:24px;border:3px dashed #000;border-radius:10px">
+      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#666;margin-bottom:8px">Garage Storage</div>
+      <img src="${qrUrl}" style="width:200px;height:200px">
+      <div style="font-size:28px;font-weight:700;letter-spacing:.1em;margin:10px 0;font-family:monospace">${binId}</div>
+      <button onclick="window.print();window.close()" style="padding:8px 20px;font-size:14px;cursor:pointer;border-radius:4px;border:1px solid #ccc">Print Now</button>
+    </div></body></html>`);
+  w.document.close();
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { if ($("modalBg").classList.contains("open")) closeModal(); else if (selected) closeDrawer(); }
+  if (e.key === "/" && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); $("q").focus(); }
+});
+
+let qTimer;
+$("q").addEventListener("input", e => {
+  clearTimeout(qTimer);
+  qTimer = setTimeout(async () => {
+    query = e.target.value.trim();
+    ITEMS = await api("/api/items?search=" + encodeURIComponent(query)).catch(() => ITEMS);
+    render();
+  }, 200);
+});
+
+// Hidden file inputs for camera capture
+(function() {
+  const itemInp = document.createElement("input");
+  itemInp.type = "file"; itemInp.id = "_itemPhotoInput"; itemInp.accept = "image/*"; itemInp.capture = "environment"; itemInp.style.display = "none";
+  itemInp.addEventListener("change", e => { if (e.target.files[0]) uploadPhoto("item", e.target.dataset.itemId, e.target.files[0]); e.target.value = ""; });
+  document.body.appendChild(itemInp);
+
+  const binInp = document.createElement("input");
+  binInp.type = "file"; binInp.id = "_binPhotoInput"; binInp.accept = "image/*"; binInp.capture = "environment"; binInp.style.display = "none";
+  binInp.addEventListener("change", e => { if (e.target.files[0]) uploadPhoto("bin", e.target.dataset.binId, e.target.files[0]); e.target.value = ""; });
+  document.body.appendChild(binInp);
+})();
+
+load();
+setInterval(() => { if (!$("modalBg").classList.contains("open") && !selected) load(); }, 30000);
+</script>
+{% endif %}
+
+</body>
+</html>

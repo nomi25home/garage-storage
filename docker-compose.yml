@@ -1,0 +1,18 @@
+services:
+  garage-storage:
+    build: .
+    container_name: garage-storage
+    restart: unless-stopped
+    ports:
+      - "8099:8096"
+    volumes:
+      - garage_data:/data
+    dns:
+      - 192.168.74.28
+      - 192.168.74.33
+    environment:
+      - TZ=America/New_York
+      - PYTHONUNBUFFERED=1
+
+volumes:
+  garage_data:
