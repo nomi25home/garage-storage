@@ -135,6 +135,7 @@ select.in { cursor: pointer; }
     <div class="inner">
       <dl class="kv">
         <dt>Zone</dt><dd>{{ single_bin.zone }}</dd>
+        {% if single_bin.room %}<dt>Room</dt><dd>{{ single_bin.room }}</dd>{% endif %}
         <dt>Shelf</dt><dd>{{ single_bin.shelf_number }}</dd>
         <dt>Container</dt><dd>{{ single_bin.color_code }}</dd>
         <dt>Items</dt><dd>{{ items | length }}</dd>
@@ -223,6 +224,7 @@ let ITEMS = [];
 let selected = null;
 let query = "";
 let filterZones = new Set();
+let filterRooms = new Set();
 let filterBins = new Set();
 let filterTags = new Set();
 let selectedItems = new Set();
@@ -323,10 +325,23 @@ function render() {
       return `<button class="chip ${filterZones.has(z) ? 'on' : ''}" onclick="toggleZone('${esc(z)}')">${esc(z)} (${cnt})</button>`;
     })
   ].join("");
-  const binChips = zoneBins.length
+
+  const allRooms = [...new Set(zoneBins.map(b => b.room).filter(Boolean))].sort();
+  const roomBins = filterRooms.size === 0 ? zoneBins : zoneBins.filter(b => filterRooms.has(b.room));
+  const roomChips = allRooms.length
+    ? `<span style="margin-left:8px;color:var(--outline-var)">|</span> ROOM ` + [
+        `<button class="chip ${filterRooms.size === 0 ? 'on' : ''}" onclick="clearRooms()">All</button>`,
+        ...allRooms.map(r => {
+          const cnt = zoneBins.filter(b => b.room === r).length;
+          return `<button class="chip ${filterRooms.has(r) ? 'on' : ''}" onclick="toggleRoom('${esc(r)}')">${esc(r)} (${cnt})</button>`;
+        })
+      ].join("")
+    : "";
+
+  const binChips = roomBins.length
     ? `<span style="margin-left:8px;color:var(--outline-var)">|</span> BOX ` +
       `<button class="chip ${filterBins.size === 0 ? 'on' : ''}" onclick="clearBins()" style="margin-right:2px">All</button>` +
-      zoneBins.map(b => {
+      roomBins.map(b => {
         const cnt = ITEMS.filter(i => i.bin_id === b.bin_id).length;
         return `<button class="chip ${filterBins.has(b.bin_id) ? 'on' : ''}" onclick="toggleBin('${esc(b.bin_id)}')">${esc(b.bin_id)} <span style="opacity:.7">${cnt}</span></button>`;
       }).join("")
@@ -344,11 +359,13 @@ function render() {
     : '';
   $("filters").innerHTML = zoneChips + binChips + tagChipsHtml + paletteBtn;
 
-  const list = ITEMS.filter(i =>
-    (filterZones.size === 0 || filterZones.has(i.zone)) &&
-    (filterBins.size === 0 || filterBins.has(i.bin_id)) &&
-    (filterTags.size === 0 || parseTags(i.tags).some(t => filterTags.has(t)))
-  );
+  const list = ITEMS.filter(i => {
+    const bin = BINS.find(b => b.bin_id === i.bin_id);
+    return (filterZones.size === 0 || filterZones.has(i.zone)) &&
+      (filterRooms.size === 0 || (bin && filterRooms.has(bin.room))) &&
+      (filterBins.size === 0 || filterBins.has(i.bin_id)) &&
+      (filterTags.size === 0 || parseTags(i.tags).some(t => filterTags.has(t)));
+  });
 
   $("rows").innerHTML = list.map(item => {
     const sel = selected && item.bin_id === selected;
@@ -358,7 +375,7 @@ function render() {
       <td><strong>${esc(item.name)}</strong><span class="sub">${esc(item.category)}</span></td>
       <td class="mono" style="color:var(--on-var)">${item.quantity}</td>
       <td><span class="tag bin">${esc(item.bin_id)}</span></td>
-      <td class="col-zone"><span style="font:11px var(--mono);color:var(--outline)">Zone ${esc(item.zone)} · ${esc(item.shelf_number)}</span>${parseTags(item.tags).length ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${parseTags(item.tags).map(t=>tagChip(t,'xs')).join('')}</div>` : ''}</td>
+      <td class="col-zone"><span style="font:11px var(--mono);color:var(--outline)">${[item.zone, (()=>{const b=BINS.find(x=>x.bin_id===item.bin_id); return b&&b.room?b.room:null;})(), item.shelf_number].filter(Boolean).join(' · ')}</span>${parseTags(item.tags).length ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${parseTags(item.tags).map(t=>tagChip(t,'xs')).join('')}</div>` : ''}</td>
     </tr>`;
   }).join("");
   renderBulkBar(list);
@@ -403,6 +420,7 @@ function renderDrawer() {
       </div>
       <div class="inner" style="margin-top:8px"><dl class="kv">
         <dt>Zone</dt><dd>${esc(bin.zone)}</dd>
+        ${bin.room ? `<dt>Room</dt><dd>${esc(bin.room)}</dd>` : ''}
         <dt>Shelf</dt><dd>${esc(bin.shelf_number)}</dd>
         <dt>Container</dt><dd>${esc(bin.color_code)}</dd>
         <dt>Items</dt><dd>${items.length} types · ${total} total qty</dd>
@@ -438,16 +456,20 @@ function renderDrawer() {
 }
 
 function toggleTag(tag) { filterTags.has(tag) ? filterTags.delete(tag) : filterTags.add(tag); render(); }
-function toggleZone(z) { filterZones.has(z) ? filterZones.delete(z) : filterZones.add(z); filterBins = new Set(); selectedItems = new Set(); bulkTags = []; bulkMode = 'add'; selected = null; editingItemId = null; $("drawer").classList.remove("open"); render(); }
-function clearZones() { filterZones = new Set(); filterBins = new Set(); selectedItems = new Set(); bulkTags = []; bulkMode = 'add'; selected = null; editingItemId = null; $("drawer").classList.remove("open"); render(); }
+function toggleZone(z) { filterZones.has(z) ? filterZones.delete(z) : filterZones.add(z); filterRooms = new Set(); filterBins = new Set(); selectedItems = new Set(); bulkTags = []; bulkMode = 'add'; selected = null; editingItemId = null; $("drawer").classList.remove("open"); render(); }
+function clearZones() { filterZones = new Set(); filterRooms = new Set(); filterBins = new Set(); selectedItems = new Set(); bulkTags = []; bulkMode = 'add'; selected = null; editingItemId = null; $("drawer").classList.remove("open"); render(); }
+function toggleRoom(r) { filterRooms.has(r) ? filterRooms.delete(r) : filterRooms.add(r); filterBins = new Set(); render(); }
+function clearRooms() { filterRooms = new Set(); filterBins = new Set(); render(); }
 function toggleBin(binId) { filterBins.has(binId) ? filterBins.delete(binId) : filterBins.add(binId); render(); }
 function clearBins() { filterBins = new Set(); render(); }
 function getVisibleList() {
-  return ITEMS.filter(i =>
-    (filterZones.size === 0 || filterZones.has(i.zone)) &&
-    (filterBins.size === 0 || filterBins.has(i.bin_id)) &&
-    (filterTags.size === 0 || parseTags(i.tags).some(t => filterTags.has(t)))
-  );
+  return ITEMS.filter(i => {
+    const bin = BINS.find(b => b.bin_id === i.bin_id);
+    return (filterZones.size === 0 || filterZones.has(i.zone)) &&
+      (filterRooms.size === 0 || (bin && filterRooms.has(bin.room))) &&
+      (filterBins.size === 0 || filterBins.has(i.bin_id)) &&
+      (filterTags.size === 0 || parseTags(i.tags).some(t => filterTags.has(t)));
+  });
 }
 
 function openAllBins() {
@@ -461,7 +483,7 @@ function openAllBins() {
       ${photo}
       <div style="flex:1;min-width:0">
         <div style="font:600 13px var(--mono);color:var(--primary)">${esc(b.bin_id)}</div>
-        <div style="font:11px var(--mono);color:var(--outline);margin-top:2px">Zone ${esc(b.zone)} · ${esc(b.shelf_number)}</div>
+        <div style="font:11px var(--mono);color:var(--outline);margin-top:2px">${[b.zone, b.room, b.shelf_number].filter(Boolean).join(' · ')}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font:600 14px var(--mono);color:var(--on)">${items.length}</div>
@@ -607,7 +629,7 @@ function goHome(e) {
   e.preventDefault();
   query = ""; $("q").value = "";
   selected = null; $("drawer").classList.remove("open");
-  filterZones = new Set(); filterBins = new Set(); filterTags = new Set(); editingItemId = null; selectedItems = new Set(); bulkTags = []; bulkMode = 'add';
+  filterZones = new Set(); filterRooms = new Set(); filterBins = new Set(); filterTags = new Set(); editingItemId = null; selectedItems = new Set(); bulkTags = []; bulkMode = 'add';
   render();
   return false;
 }
@@ -627,10 +649,12 @@ function openAddBin() {
     <div class="mb">
       <div><label class="f">Box ID *</label><input class="in" id="bId" placeholder="e.g. BIN-10" autocomplete="off"></div>
       <div class="row2">
-        <div><label class="f">Zone *</label><input class="in" id="bZone" placeholder="e.g. West Wall" list="zoneList"></div>
-        <div><label class="f">Shelf *</label><input class="in" id="bShelf" placeholder="e.g. Row 2"></div>
+        <div><label class="f">Zone *</label><input class="in" id="bZone" placeholder="e.g. Garage" list="zoneList"></div>
+        <div><label class="f">Room</label><input class="in" id="bRoom" placeholder="e.g. Workshop" list="roomList"></div>
       </div>
+      <div><label class="f">Shelf *</label><input class="in" id="bShelf" placeholder="e.g. Row 2"></div>
       <datalist id="zoneList">${[...new Set(BINS.map(b => b.zone))].map(z => `<option value="${esc(z)}">`).join("")}</datalist>
+      <datalist id="roomList">${[...new Set(BINS.map(b => b.room).filter(Boolean))].map(r => `<option value="${esc(r)}">`).join("")}</datalist>
       <div><label class="f">Container Description *</label><input class="in" id="bColor" placeholder="e.g. Large Yellow Lid"></div>
       <div class="err" id="bErr"></div>
     </div>
@@ -641,11 +665,11 @@ function openAddBin() {
 }
 
 async function saveAddBin() {
-  const id = $("bId").value.trim(), zone = $("bZone").value.trim(), shelf = $("bShelf").value.trim(), color = $("bColor").value.trim();
-  if (!id || !zone || !shelf || !color) { $("bErr").textContent = "All fields are required"; return; }
+  const id = $("bId").value.trim(), zone = $("bZone").value.trim(), room = ($("bRoom")||{value:''}).value.trim(), shelf = $("bShelf").value.trim(), color = $("bColor").value.trim();
+  if (!id || !zone || !shelf || !color) { $("bErr").textContent = "Zone, Shelf, and Container are required"; return; }
   $("bSave").disabled = true;
   const fd = new FormData();
-  fd.append("bin_id", id); fd.append("zone", zone); fd.append("shelf", shelf); fd.append("color", color);
+  fd.append("bin_id", id); fd.append("zone", zone); fd.append("room", room); fd.append("shelf", shelf); fd.append("color", color);
   try {
     await api("/add-bin", { method: "POST", body: fd });
     closeModal();

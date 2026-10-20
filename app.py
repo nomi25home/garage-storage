@@ -57,6 +57,7 @@ def init_db():
         "ALTER TABLE items ADD COLUMN item_photo TEXT",
         "ALTER TABLE bins ADD COLUMN bin_photo TEXT",
         "ALTER TABLE items ADD COLUMN tags TEXT DEFAULT ''",
+        "ALTER TABLE bins ADD COLUMN room TEXT DEFAULT ''",
     ]:
         try:
             conn.execute(stmt)
@@ -248,12 +249,13 @@ async def view_single_bin(request: Request, bin_id: str):
 async def web_add_bin(
     bin_id: str = Form(...),
     zone: str = Form(...),
+    room: str = Form(""),
     shelf: str = Form(...),
     color: str = Form(...),
 ):
     conn = get_db()
     try:
-        conn.execute("INSERT INTO bins (bin_id, zone, shelf_number, color_code) VALUES (?, ?, ?, ?)", (bin_id, zone, shelf, color))
+        conn.execute("INSERT INTO bins (bin_id, zone, room, shelf_number, color_code) VALUES (?, ?, ?, ?, ?)", (bin_id, zone, room, shelf, color))
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
