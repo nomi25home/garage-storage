@@ -149,10 +149,10 @@ async def api_get_items(search: str = ""):
             """
             SELECT items.*, bins.zone, bins.shelf_number, bins.color_code
             FROM items JOIN bins ON items.bin_id = bins.bin_id
-            WHERE items.name LIKE ? OR items.category LIKE ? OR items.bin_id LIKE ?
+            WHERE items.name LIKE ? OR items.category LIKE ? OR items.bin_id LIKE ? OR items.tags LIKE ?
             ORDER BY items.bin_id, items.name
             """,
-            (f"%{search}%", f"%{search}%", f"%{search}%"),
+            (f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"),
         )
     else:
         cursor.execute(
