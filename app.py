@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import pandas as pd
 
-app = FastAPI(title="Garage Storage Box Content Management")
+app = FastAPI(title="nomi25home Storage")
 templates = Jinja2Templates(directory="templates")
 DB_NAME = "/data/garage_inventory.db"
 PHOTOS_DIR = Path("/data/photos")
@@ -109,13 +109,17 @@ async def bulk_tag(request: Request):
     tags = [t.strip().lower() for t in data.get("tags", []) if t.strip()]
     if not item_ids or not tags:
         return JSONResponse({"error": "item_ids and tags required"}, status_code=400)
+    mode = data.get("mode", "add")
     conn = get_db()
     for item_id in item_ids:
         row = conn.execute("SELECT tags FROM items WHERE item_id=?", (item_id,)).fetchone()
         if not row:
             continue
         existing = [t.strip() for t in (row["tags"] or "").split(",") if t.strip()]
-        merged = list(dict.fromkeys(existing + tags))
+        if mode == "remove":
+            merged = [t for t in existing if t not in tags]
+        else:
+            merged = list(dict.fromkeys(existing + tags))
         conn.execute("UPDATE items SET tags=? WHERE item_id=?", (",".join(merged), item_id))
     conn.commit()
     conn.close()

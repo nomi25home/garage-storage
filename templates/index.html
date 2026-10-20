@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Garage Storage</title>
+<title>nomi25home Storage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -124,7 +124,7 @@ select.in { cursor: pointer; }
 {% if single_bin %}
 <!-- ── Mobile single-bin scan landing page ── -->
 <header>
-  <a class="brand" href="/"><span class="ms">inventory_2</span><span>Garage Storage</span></a>
+  <a class="brand" href="/"><span class="ms">inventory_2</span><span>nomi25home Storage</span></a>
   <div class="spacer"></div>
   <a href="/" class="btn"><span class="ms">arrow_back</span>All Inventory</a>
 </header>
@@ -177,7 +177,7 @@ select.in { cursor: pointer; }
 {% else %}
 <!-- ── Main SPA dashboard ── -->
 <header>
-  <a class="brand" href="/" onclick="return goHome(event)"><span class="ms">inventory_2</span><span>Garage Storage</span></a>
+  <a class="brand" href="/" onclick="return goHome(event)"><span class="ms">inventory_2</span><span>nomi25home Storage</span></a>
   <div class="crumb"><button class="pill" id="crumbCount" onclick="openAllBins()" title="View all boxes" style="cursor:pointer;background:var(--high);border:1px solid var(--outline-var);border-radius:3px;padding:2px 6px;font:600 11px var(--mono);color:var(--on-var)">…</button></div>
   <div class="search"><span class="ms">search</span><input id="q" placeholder="Item, category, or box ID…" autocomplete="off"><kbd>/</kbd></div>
   <div class="spacer"></div>
@@ -222,11 +222,12 @@ let BINS = [];
 let ITEMS = [];
 let selected = null;
 let query = "";
-let filterZone = "all";
-let filterBin = "all";
+let filterZones = new Set();
+let filterBins = new Set();
 let filterTags = new Set();
 let selectedItems = new Set();
 let bulkTags = [];
+let bulkMode = 'add';
 let editingItemId = null;
 let editingTags = [];
 let editingVals = {name: '', category: '', quantity: 1};
@@ -314,16 +315,20 @@ function render() {
     }).join("")}`;
   document.documentElement.style.setProperty("--strip-h", $("strip").offsetHeight + "px");
 
-  const allZones = ["all", ...zoneList];
-  const zoneBins = filterZone === "all" ? BINS : BINS.filter(b => b.zone === filterZone);
-  const zoneChips = "ZONE " + allZones.map(z => {
-    const label = z === "all" ? `All (${BINS.length})` : `${esc(z)} (${BINS.filter(b => b.zone === z).length})`;
-    return `<button class="chip ${z === filterZone ? "on" : ""}" onclick="setZone('${esc(z)}')">${label}</button>`;
-  }).join("");
+  const zoneBins = filterZones.size === 0 ? BINS : BINS.filter(b => filterZones.has(b.zone));
+  const zoneChips = "ZONE " + [
+    `<button class="chip ${filterZones.size === 0 ? 'on' : ''}" onclick="clearZones()">All (${BINS.length})</button>`,
+    ...zoneList.map(z => {
+      const cnt = BINS.filter(b => b.zone === z).length;
+      return `<button class="chip ${filterZones.has(z) ? 'on' : ''}" onclick="toggleZone('${esc(z)}')">${esc(z)} (${cnt})</button>`;
+    })
+  ].join("");
   const binChips = zoneBins.length
-    ? `<span style="margin-left:8px;color:var(--outline-var)">|</span> BOX ` + zoneBins.map(b => {
+    ? `<span style="margin-left:8px;color:var(--outline-var)">|</span> BOX ` +
+      `<button class="chip ${filterBins.size === 0 ? 'on' : ''}" onclick="clearBins()" style="margin-right:2px">All</button>` +
+      zoneBins.map(b => {
         const cnt = ITEMS.filter(i => i.bin_id === b.bin_id).length;
-        return `<button class="chip ${b.bin_id === filterBin ? "on" : ""}" onclick="setBin('${esc(b.bin_id)}')">${esc(b.bin_id)} <span style="opacity:.7">${cnt}</span></button>`;
+        return `<button class="chip ${filterBins.has(b.bin_id) ? 'on' : ''}" onclick="toggleBin('${esc(b.bin_id)}')">${esc(b.bin_id)} <span style="opacity:.7">${cnt}</span></button>`;
       }).join("")
     : "";
   const allTags = [...new Set(ITEMS.flatMap(i => parseTags(i.tags)))].sort();
@@ -339,10 +344,9 @@ function render() {
     : '';
   $("filters").innerHTML = zoneChips + binChips + tagChipsHtml + paletteBtn;
 
-  const visibleBins = zoneBins.map(b => b.bin_id);
   const list = ITEMS.filter(i =>
-    visibleBins.includes(i.bin_id) &&
-    (filterBin === "all" || i.bin_id === filterBin) &&
+    (filterZones.size === 0 || filterZones.has(i.zone)) &&
+    (filterBins.size === 0 || filterBins.has(i.bin_id)) &&
     (filterTags.size === 0 || parseTags(i.tags).some(t => filterTags.has(t)))
   );
 
@@ -351,10 +355,10 @@ function render() {
     const chk = selectedItems.has(item.item_id);
     return `<tr class="${sel ? "sel" : ""}" onclick="select('${esc(item.bin_id)}')">
       <td style="padding:8px 4px 8px 12px" onclick="event.stopPropagation()"><input type="checkbox" ${chk ? "checked" : ""} onchange="toggleItemSelect(${item.item_id},this.checked)" style="cursor:pointer;accent-color:var(--primary)"></td>
-      <td><strong>${esc(item.name)}</strong><span class="sub">${esc(item.category)}</span>${parseTags(item.tags).length ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${parseTags(item.tags).map(t=>tagChip(t,'xs')).join('')}</div>` : ''}</td>
+      <td><strong>${esc(item.name)}</strong><span class="sub">${esc(item.category)}</span></td>
       <td class="mono" style="color:var(--on-var)">${item.quantity}</td>
       <td><span class="tag bin">${esc(item.bin_id)}</span></td>
-      <td class="col-zone"><span style="font:11px var(--mono);color:var(--outline)">Zone ${esc(item.zone)} · ${esc(item.shelf_number)}</span></td>
+      <td class="col-zone"><span style="font:11px var(--mono);color:var(--outline)">Zone ${esc(item.zone)} · ${esc(item.shelf_number)}</span>${parseTags(item.tags).length ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${parseTags(item.tags).map(t=>tagChip(t,'xs')).join('')}</div>` : ''}</td>
     </tr>`;
   }).join("");
   renderBulkBar(list);
@@ -367,14 +371,12 @@ function render() {
 
 function select(binId) {
   selected = binId;
-  filterBin = binId;
   render();
   $("drawer").classList.add("open");
 }
 
 function closeDrawer() {
   selected = null;
-  filterBin = "all";
   editingItemId = null;
   $("drawer").classList.remove("open");
   render();
@@ -436,13 +438,16 @@ function renderDrawer() {
 }
 
 function toggleTag(tag) { filterTags.has(tag) ? filterTags.delete(tag) : filterTags.add(tag); render(); }
-function setZone(z) { filterZone = z; filterBin = "all"; filterTags = new Set(); selected = null; editingItemId = null; selectedItems = new Set(); bulkTags = []; $("drawer").classList.remove("open"); render(); }
-function setBin(binId) {
-  if (filterBin === binId) {
-    filterBin = "all"; selected = null; editingItemId = null; $("drawer").classList.remove("open");
-  } else {
-    editingItemId = null; filterBin = binId; select(binId);
-  }
+function toggleZone(z) { filterZones.has(z) ? filterZones.delete(z) : filterZones.add(z); filterBins = new Set(); selectedItems = new Set(); bulkTags = []; bulkMode = 'add'; selected = null; editingItemId = null; $("drawer").classList.remove("open"); render(); }
+function clearZones() { filterZones = new Set(); filterBins = new Set(); selectedItems = new Set(); bulkTags = []; bulkMode = 'add'; selected = null; editingItemId = null; $("drawer").classList.remove("open"); render(); }
+function toggleBin(binId) { filterBins.has(binId) ? filterBins.delete(binId) : filterBins.add(binId); render(); }
+function clearBins() { filterBins = new Set(); render(); }
+function getVisibleList() {
+  return ITEMS.filter(i =>
+    (filterZones.size === 0 || filterZones.has(i.zone)) &&
+    (filterBins.size === 0 || filterBins.has(i.bin_id)) &&
+    (filterTags.size === 0 || parseTags(i.tags).some(t => filterTags.has(t)))
+  );
 }
 
 function openAllBins() {
@@ -483,50 +488,56 @@ function renderBulkBar(list) {
   if (selectedItems.size === 0) { bar.hidden = true; bar.innerHTML = ''; return; }
   const allChecked = list.length > 0 && list.every(i => selectedItems.has(i.item_id));
   const chkAll = $("chkAll"); if (chkAll) chkAll.checked = allChecked;
+
+  // In REMOVE mode, show only tags that exist on at least one selected item
+  const selectedItemObjs = ITEMS.filter(i => selectedItems.has(i.item_id));
+  const tagsOnSelected = [...new Set(selectedItemObjs.flatMap(i => parseTags(i.tags)))].sort();
   const allKnownTags = [...new Set(ITEMS.flatMap(i => parseTags(i.tags)))].sort();
-  const presetChips = [...new Set([...PRESET_TAGS, ...allKnownTags])].map(t => {
+  const tagPool = bulkMode === 'remove' ? tagsOnSelected : [...new Set([...PRESET_TAGS, ...allKnownTags])];
+
+  const chips = tagPool.map(t => {
     const active = bulkTags.includes(t), c = tagColor(t);
     const st = active ? `border-color:${c.b};color:${c.t};background:${c.bg}` : '';
     return `<button class="chip" style="height:22px;${st}" onclick="toggleBulkTag('${esc(t)}')">${esc(t)}</button>`;
   }).join('');
+
+  const modeAdd = bulkMode === 'add';
   bar.hidden = false;
   bar.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 20px;background:rgba(76,215,246,.07);border-bottom:1px solid rgba(76,215,246,.25);font:600 10px var(--mono);letter-spacing:.05em">
     <span style="color:var(--primary);white-space:nowrap">✓ ${selectedItems.size} selected</span>
     <button class="btn" onclick="toggleAllItems(${allChecked})" style="height:22px;font-size:9px">${allChecked ? 'Deselect all' : 'Select all '+list.length}</button>
     <button class="btn danger" onclick="clearSelection()" style="height:22px;font-size:9px">Clear</button>
     <span style="color:var(--outline-var);margin:0 2px">|</span>
-    <span style="color:var(--on-var)">ADD TAGS</span>
-    ${presetChips}
-    <input class="in" id="_bulkTagInput" placeholder="custom tag…" style="height:22px;width:100px;font-size:10px" onkeydown="if(event.key==='Enter'){event.preventDefault();addBulkTagFromInput()}">
-    <button class="btn primary" onclick="applyBulkTags()" style="height:22px;font-size:9px" ${bulkTags.length===0?'disabled':''}>
-      <span class="ms" style="font-size:13px">label</span>Apply to ${selectedItems.size}
+    <button class="btn${modeAdd?' primary':''}" onclick="setBulkMode('add')" style="height:22px;font-size:9px">+ Add tags</button>
+    <button class="btn${!modeAdd?' danger':''}" onclick="setBulkMode('remove')" style="height:22px;font-size:9px">– Remove tags</button>
+    <span style="color:var(--outline-var);margin:0 2px">|</span>
+    ${chips}
+    ${modeAdd ? `<input class="in" id="_bulkTagInput" placeholder="custom tag…" style="height:22px;width:100px;font-size:10px" onkeydown="if(event.key==='Enter'){event.preventDefault();addBulkTagFromInput()}">` : (tagsOnSelected.length===0?'<span style="color:var(--outline)">no tags on selected items</span>':'')}
+    <button class="btn${modeAdd?' primary':' danger'}" onclick="applyBulkTags()" style="height:22px;font-size:9px" ${bulkTags.length===0?'disabled':''}>
+      <span class="ms" style="font-size:13px">${modeAdd?'label':'label_off'}</span>${modeAdd?'Apply to':'Remove from'} ${selectedItems.size}
     </button>
   </div>`;
 }
 
 function toggleItemSelect(itemId, checked) {
   if (checked) selectedItems.add(itemId); else selectedItems.delete(itemId);
-  renderBulkBar(ITEMS.filter(i => {
-    const zoneBins = filterZone === 'all' ? BINS : BINS.filter(b => b.zone === filterZone);
-    return zoneBins.map(b=>b.bin_id).includes(i.bin_id) && (filterBin==='all'||i.bin_id===filterBin) && (filterTags.size===0||parseTags(i.tags).some(t=>filterTags.has(t)));
-  }));
+  renderBulkBar(getVisibleList());
 }
 
 function toggleAllItems(allCurrentlyChecked) {
-  const zoneBins = filterZone === 'all' ? BINS : BINS.filter(b => b.zone === filterZone);
-  const list = ITEMS.filter(i => zoneBins.map(b=>b.bin_id).includes(i.bin_id) && (filterBin==='all'||i.bin_id===filterBin) && (filterTags.size===0||parseTags(i.tags).some(t=>filterTags.has(t))));
+  const list = getVisibleList();
   if (allCurrentlyChecked) { list.forEach(i => selectedItems.delete(i.item_id)); }
   else { list.forEach(i => selectedItems.add(i.item_id)); }
   render();
 }
 
-function clearSelection() { selectedItems = new Set(); bulkTags = []; render(); }
+function clearSelection() { selectedItems = new Set(); bulkTags = []; bulkMode = 'add'; render(); }
+function setBulkMode(mode) { bulkMode = mode; bulkTags = []; renderBulkBar(getVisibleList()); }
 
 function toggleBulkTag(tag) {
   const idx = bulkTags.indexOf(tag);
   if (idx >= 0) bulkTags.splice(idx, 1); else bulkTags.push(tag);
-  const zoneBins = filterZone === 'all' ? BINS : BINS.filter(b => b.zone === filterZone);
-  renderBulkBar(ITEMS.filter(i => zoneBins.map(b=>b.bin_id).includes(i.bin_id) && (filterBin==='all'||i.bin_id===filterBin) && (filterTags.size===0||parseTags(i.tags).some(t=>filterTags.has(t)))));
+  renderBulkBar(getVisibleList());
 }
 
 function addBulkTagFromInput() {
@@ -535,8 +546,7 @@ function addBulkTagFromInput() {
   if (!val || bulkTags.includes(val)) { if (inp) inp.value = ''; return; }
   bulkTags.push(val);
   if (inp) inp.value = '';
-  const zoneBins = filterZone === 'all' ? BINS : BINS.filter(b => b.zone === filterZone);
-  renderBulkBar(ITEMS.filter(i => zoneBins.map(b=>b.bin_id).includes(i.bin_id) && (filterBin==='all'||i.bin_id===filterBin) && (filterTags.size===0||parseTags(i.tags).some(t=>filterTags.has(t)))));
+  renderBulkBar(getVisibleList());
 }
 
 async function applyBulkTags() {
@@ -545,10 +555,10 @@ async function applyBulkTags() {
     const res = await api('/api/bulk-tag', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({item_ids: [...selectedItems], tags: bulkTags}),
+      body: JSON.stringify({item_ids: [...selectedItems], tags: bulkTags, mode: bulkMode}),
     });
-    toast(`Tags added to ${res.updated} item${res.updated===1?'':'s'}`);
-    selectedItems = new Set(); bulkTags = [];
+    toast(`Tags ${bulkMode === 'add' ? 'added to' : 'removed from'} ${res.updated} item${res.updated===1?'':'s'}`);
+    selectedItems = new Set(); bulkTags = []; bulkMode = 'add';
     await load();
   } catch(e) { toast('Bulk tag failed: ' + e.message, true); }
 }
@@ -597,7 +607,7 @@ function goHome(e) {
   e.preventDefault();
   query = ""; $("q").value = "";
   selected = null; $("drawer").classList.remove("open");
-  filterZone = "all"; filterBin = "all"; filterTags = new Set(); editingItemId = null; selectedItems = new Set(); bulkTags = [];
+  filterZones = new Set(); filterBins = new Set(); filterTags = new Set(); editingItemId = null; selectedItems = new Set(); bulkTags = []; bulkMode = 'add';
   render();
   return false;
 }
@@ -859,7 +869,7 @@ function printLabel(binId, qrUrl) {
   const w = window.open("", "_blank", "width=420,height=480");
   w.document.write(`<!doctype html><html><head><title>${binId}</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">
     <div style="text-align:center;font-family:sans-serif;padding:24px;border:3px dashed #000;border-radius:10px">
-      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#666;margin-bottom:8px">Garage Storage</div>
+      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#666;margin-bottom:8px">nomi25home Storage</div>
       <img src="${qrUrl}" style="width:200px;height:200px">
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;margin:10px 0;font-family:monospace">${binId}</div>
       <button onclick="window.print();window.close()" style="padding:8px 20px;font-size:14px;cursor:pointer;border-radius:4px;border:1px solid #ccc">Print Now</button>
