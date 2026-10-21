@@ -200,6 +200,14 @@ select.in { cursor: pointer; }
   <button class="icon-btn" title="{{ t.nav.export_csv }}" onclick="window.location.href='/export/csv'"><span class="ms">download</span></button>
   <button class="icon-btn" title="{{ t.nav.backup }}" onclick="window.location.href='/api/backup'"><span class="ms">database</span></button>
   <button class="icon-btn" id="dlBackupBtn" title="Download full backup (.zip)" onclick="triggerFullBackup()"><span class="ms">backup</span></button>
+  {% if oidc_enabled %}
+    {% if user %}
+      <span class="muted mono" style="font-size:11px;padding:0 4px" title="{{ user.get('email', '') }}">{{ user.get('preferred_username') or user.get('name') or user.get('email', 'user') }}</span>
+      <a class="icon-btn" href="/logout" title="Sign out"><span class="ms">logout</span></a>
+    {% else %}
+      <a class="icon-btn" href="/login" title="Sign in"><span class="ms">login</span></a>
+    {% endif %}
+  {% endif %}
 </header>
 
 <section class="strip" id="strip">

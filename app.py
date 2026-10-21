@@ -23,13 +23,34 @@ from fastapi.responses import (
     HTMLResponse,
     FileResponse,
     JSONResponse,
+    RedirectResponse,
     StreamingResponse,
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
+from authlib.integrations.starlette_client import OAuth
 import pandas as pd
 
 app = FastAPI(title=os.environ.get("APP_TITLE", "Kapaat"))
+
+AUTH_SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "change-me-in-production")
+app.add_middleware(SessionMiddleware, secret_key=AUTH_SECRET_KEY)
+
+AUTHENTIK_CLIENT_ID = os.environ.get("AUTHENTIK_CLIENT_ID", "")
+AUTHENTIK_CLIENT_SECRET = os.environ.get("AUTHENTIK_CLIENT_SECRET", "")
+AUTHENTIK_ISSUER_URL = os.environ.get("AUTHENTIK_ISSUER_URL", "").rstrip("/")
+
+oauth = OAuth()
+if AUTHENTIK_CLIENT_ID:
+    oauth.register(
+        name="authentik",
+        client_id=AUTHENTIK_CLIENT_ID,
+        client_secret=AUTHENTIK_CLIENT_SECRET,
+        server_metadata_url=f"{AUTHENTIK_ISSUER_URL}/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid profile email"},
+    )
+
 templates = Jinja2Templates(directory="templates")
 
 if Path("static").exists():
@@ -71,6 +92,26 @@ BASE_URL = os.environ.get("BASE_URL", "http://localhost:8096")
 
 # Optional: n8n webhook for Google Sheets sync. Leave blank to disable.
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
+
+
+def _require_auth(request: Request):
+    """Return the session user dict, or raise/redirect if OIDC is enabled and no session."""
+    if not AUTHENTIK_CLIENT_ID:
+        return None
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
+
+
+def _require_auth_html(request: Request):
+    """Like _require_auth but redirects to /login for browser (HTML) routes."""
+    if not AUTHENTIK_CLIENT_ID:
+        return None
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse("/login")
+    return user
 
 
 def get_db():
@@ -300,8 +341,33 @@ async def api_get_items(search: str = ""):
     return items
 
 
+@app.get("/login")
+async def login(request: Request):
+    if not AUTHENTIK_CLIENT_ID:
+        return RedirectResponse("/")
+    redirect_uri = request.url_for("auth_callback")
+    return await oauth.authentik.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/callback", name="auth_callback")
+async def auth_callback(request: Request):
+    token = await oauth.authentik.authorize_access_token(request)
+    user = token.get("userinfo") or await oauth.authentik.userinfo(token=token)
+    request.session["user"] = dict(user)
+    return RedirectResponse("/")
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, search: str = ""):
+    auth = _require_auth_html(request)
+    if isinstance(auth, RedirectResponse):
+        return auth
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM bins")
@@ -339,6 +405,8 @@ async def dashboard(request: Request, search: str = ""):
             "single_bin": None,
             "t": _LOCALE,
             "locale_json": json.dumps(_LOCALE, ensure_ascii=False),
+            "user": request.session.get("user"),
+            "oidc_enabled": bool(AUTHENTIK_CLIENT_ID),
         },
     )
 
