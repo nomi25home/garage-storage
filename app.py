@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -5,6 +6,8 @@ import shutil
 import sqlite3
 import time
 import urllib.parse
+import zipfile
+from datetime import datetime
 from pathlib import Path
 import requests
 from fastapi import (
@@ -16,7 +19,12 @@ from fastapi import (
     UploadFile,
     File,
 )
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import (
+    HTMLResponse,
+    FileResponse,
+    JSONResponse,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import pandas as pd
@@ -43,6 +51,21 @@ _LOCALE = _load_locale(_ACTIVE_LOCALE)
 DB_NAME = os.environ.get("DB_PATH", "/data/garage_inventory.db")
 PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR", "/data/photos"))
 
+# Optional AES-256 encryption via SQLCipher. Set DB_ENCRYPTION_KEY in .env to enable.
+# WARNING: if you lose the key, you lose access to your data.
+DB_ENCRYPTION_KEY = re.sub(
+    r"['\";]", "", os.environ.get("DB_ENCRYPTION_KEY", "").strip()
+)
+
+if DB_ENCRYPTION_KEY:
+    try:
+        from pysqlcipher3 import dbapi2 as sqlite3  # noqa: F811
+    except ImportError:
+        print(
+            "WARNING: DB_ENCRYPTION_KEY is set but pysqlcipher3 is not installed. Falling back to unencrypted SQLite."
+        )
+        DB_ENCRYPTION_KEY = ""
+
 # Public URL used to build QR code deep-links (must be reachable from phones on the same network).
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8096")
 
@@ -53,7 +76,7 @@ N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
 def init_db():
     os.makedirs(os.path.dirname(DB_NAME), exist_ok=True)
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bins (
@@ -139,6 +162,8 @@ init_db()
 
 def get_db():
     conn = sqlite3.connect(DB_NAME)
+    if DB_ENCRYPTION_KEY:
+        conn.execute(f"PRAGMA key = '{DB_ENCRYPTION_KEY}';")
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys = ON")
@@ -586,11 +611,9 @@ async def sync_row_from_sheet(request: Request):
 @app.get("/api/backup")
 async def backup_database():
     """Download a point-in-time snapshot of the SQLite database."""
-    import datetime
-
-    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_path = f"/tmp/kapaat-backup-{ts}.db"
-    src = sqlite3.connect(DB_NAME)
+    src = get_db()
     dst = sqlite3.connect(backup_path)
     src.backup(dst)
     dst.close()
@@ -599,6 +622,37 @@ async def backup_database():
         backup_path,
         filename=f"kapaat-backup-{ts}.db",
         media_type="application/octet-stream",
+    )
+
+
+@app.get("/api/backup/download")
+async def download_full_backup():
+    """Stream a zip archive containing the live DB snapshot and all photos."""
+    zip_buffer = io.BytesIO()
+    try:
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            if os.path.exists(DB_NAME):
+                src = get_db()
+                db_buf = io.BytesIO()
+                dst = sqlite3.connect(db_buf)  # in-memory copy
+                src.backup(dst)
+                dst.close()
+                src.close()
+                db_buf.seek(0)
+                zf.writestr("garage_inventory.db", db_buf.read())
+            if PHOTOS_DIR.exists():
+                for file_path in PHOTOS_DIR.rglob("*"):
+                    if file_path.is_file():
+                        arcname = str(file_path.relative_to(PHOTOS_DIR.parent))
+                        zf.write(str(file_path), arcname)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Backup failed: {e}")
+    zip_buffer.seek(0)
+    filename = f"kapaat_backup_{datetime.now().strftime('%Y-%m-%d_%H%M')}.zip"
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
@@ -648,7 +702,7 @@ self.addEventListener("fetch", e => {
 
 @app.get("/export/{file_type}")
 async def export_data(file_type: str):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_db()
     df = pd.read_sql_query(
         """
         SELECT items.name, items.category, items.quantity,

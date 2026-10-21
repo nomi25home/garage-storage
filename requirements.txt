@@ -6,3 +6,4 @@ openpyxl==3.1.2
 requests==2.31.0
 python-multipart==0.0.9
 aiofiles==23.2.1
+pysqlcipher3-binary==1.0.4
