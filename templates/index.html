@@ -199,6 +199,7 @@ select.in { cursor: pointer; }
       <thead>
         <tr>
           <th style="width:32px;padding:8px 4px 8px 12px"><input type="checkbox" id="chkAll" onchange="toggleAllItems(this.checked)" style="cursor:pointer;accent-color:var(--primary)"></th>
+          <th style="width:48px"></th>
           <th style="width:220px">Item</th>
           <th style="width:70px">Qty</th>
           <th style="width:120px">Box</th>
@@ -372,6 +373,10 @@ function render() {
     const chk = selectedItems.has(item.item_id);
     return `<tr class="${sel ? "sel" : ""}" onclick="select('${esc(item.bin_id)}')">
       <td style="padding:8px 4px 8px 12px" onclick="event.stopPropagation()"><input type="checkbox" ${chk ? "checked" : ""} onchange="toggleItemSelect(${item.item_id},this.checked)" style="cursor:pointer;accent-color:var(--primary)"></td>
+      <td style="padding:4px 4px 4px 0;width:48px" onclick="event.stopPropagation()">${item.item_photo
+        ? `<img src="/photos/${esc(item.item_photo)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--outline-var);display:block;cursor:zoom-in" onclick="viewPhoto('/photos/${esc(item.item_photo)}')">`
+        : `<button class="icon-btn" title="Add photo" style="width:40px;height:40px;border:1px dashed var(--outline-var);border-radius:4px;color:var(--outline)" onclick="takeItemPhoto(${item.item_id})"><span class="ms" style="font-size:16px">photo_camera</span></button>`
+      }</td>
       <td><strong>${esc(item.name)}</strong><span class="sub">${esc(item.category)}</span></td>
       <td class="mono" style="color:var(--on-var)">${item.quantity}</td>
       <td><span class="tag bin">${esc(item.bin_id)}</span></td>
