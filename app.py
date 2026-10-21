@@ -628,18 +628,22 @@ async def backup_database():
 @app.get("/api/backup/download")
 async def download_full_backup():
     """Stream a zip archive containing the live DB snapshot and all photos."""
+    import tempfile
     zip_buffer = io.BytesIO()
     try:
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             if os.path.exists(DB_NAME):
-                src = get_db()
-                db_buf = io.BytesIO()
-                dst = sqlite3.connect(db_buf)  # in-memory copy
-                src.backup(dst)
-                dst.close()
-                src.close()
-                db_buf.seek(0)
-                zf.writestr("garage_inventory.db", db_buf.read())
+                with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+                    tmp_path = tmp.name
+                try:
+                    src = get_db()
+                    dst = sqlite3.connect(tmp_path)
+                    src.backup(dst)
+                    dst.close()
+                    src.close()
+                    zf.write(tmp_path, "garage_inventory.db")
+                finally:
+                    os.unlink(tmp_path)
             if PHOTOS_DIR.exists():
                 for file_path in PHOTOS_DIR.rglob("*"):
                     if file_path.is_file():
