@@ -1,4 +1,5 @@
 import os
+import shutil
 import sqlite3
 import time
 import urllib.parse
@@ -72,6 +73,7 @@ init_db()
 def get_db():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
@@ -460,6 +462,37 @@ async def sync_row_from_sheet(request: Request):
     conn.close()
     print(f"Sheet→App sync: '{name}' x{quantity} → {bin_id} (item_id={item_id})")
     return JSONResponse({"ok": True, "item_id": item_id})
+
+
+@app.get("/api/backup")
+async def backup_database():
+    """Download a point-in-time snapshot of the SQLite database."""
+    import datetime
+    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    backup_path = f"/tmp/kapaat-backup-{ts}.db"
+    src = sqlite3.connect(DB_NAME)
+    dst = sqlite3.connect(backup_path)
+    src.backup(dst)
+    dst.close()
+    src.close()
+    return FileResponse(backup_path, filename=f"kapaat-backup-{ts}.db", media_type="application/octet-stream")
+
+
+@app.get("/manifest.json")
+async def pwa_manifest():
+    return JSONResponse({
+        "name": os.environ.get("APP_TITLE", "Kapaat"),
+        "short_name": "Kapaat",
+        "description": "Self-hosted storage bin inventory",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0f1923",
+        "theme_color": "#4cd7f6",
+        "icons": [
+            {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"},
+        ],
+    })
 
 
 @app.get("/export/{file_type}")

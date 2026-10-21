@@ -31,8 +31,8 @@
 **Requirements:** Python 3.11+, pip
 
 ```bash
-git clone https://github.com/nomi25home/garage-storage.git
-cd garage-storage
+git clone https://github.com/nomi25home/kapaat.git
+cd kapaat
 
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -54,7 +54,7 @@ Open [http://localhost:8096](http://localhost:8096). The SQLite database and pho
 ```yaml
 services:
   kapaat:
-    image: ghcr.io/nomi25home/garage-storage:latest   # or build: .
+    image: ghcr.io/nomi25home/kapaat:latest   # or build: .
     restart: unless-stopped
     ports:
       - "8096:8096"
