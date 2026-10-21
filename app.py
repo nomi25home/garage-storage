@@ -1,12 +1,13 @@
 import json
 import os
+import re
 import shutil
 import sqlite3
 import time
 import urllib.parse
 from pathlib import Path
 import requests
-from fastapi import FastAPI, Request, Form, BackgroundTasks, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, Form, BackgroundTasks, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -81,6 +82,43 @@ def init_db():
             conn.commit()
         except sqlite3.OperationalError:
             pass
+
+    # Schema version tracker — enables safe incremental migrations.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS _schema_version (
+            version INTEGER PRIMARY KEY,
+            applied_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.commit()
+
+    applied = {r[0] for r in conn.execute("SELECT version FROM _schema_version").fetchall()}
+
+    # Migration 1: rebuild items table with ON DELETE CASCADE.
+    # SQLite cannot ALTER FK constraints, so rename → recreate → copy → drop.
+    if 1 not in applied:
+        conn.executescript("""
+            PRAGMA foreign_keys = OFF;
+            BEGIN;
+            ALTER TABLE items RENAME TO _items_old;
+            CREATE TABLE items (
+                item_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                bin_id    TEXT,
+                name      TEXT NOT NULL,
+                category  TEXT,
+                quantity  INTEGER DEFAULT 1,
+                item_photo TEXT,
+                tags      TEXT DEFAULT '',
+                FOREIGN KEY (bin_id) REFERENCES bins (bin_id) ON DELETE CASCADE
+            );
+            INSERT INTO items SELECT item_id, bin_id, name, category, quantity, item_photo, tags FROM _items_old;
+            DROP TABLE _items_old;
+            COMMIT;
+            PRAGMA foreign_keys = ON;
+        """)
+        conn.execute("INSERT INTO _schema_version (version) VALUES (1)")
+        conn.commit()
+
     conn.close()
 
 
@@ -91,7 +129,14 @@ def get_db():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+def sanitize_filename(name: str) -> str:
+    name = os.path.basename(name)
+    name = re.sub(r"[^a-zA-Z0-9._-]", "", name)
+    return name or "file"
 
 
 def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int, item_id: int = None):
@@ -407,7 +452,10 @@ async def delete_item(item_id: int):
 
 @app.post("/upload-photo/{photo_type}/{record_id}")
 async def upload_photo(photo_type: str, record_id: str, file: UploadFile = File(...)):
-    ext = Path(file.filename).suffix.lower() if file.filename else ".jpg"
+    if photo_type not in {"item", "bin"}:
+        raise HTTPException(status_code=400, detail="Invalid upload type; must be 'item' or 'bin'")
+    safe_name = sanitize_filename(file.filename or "")
+    ext = Path(safe_name).suffix.lower()
     if ext not in {".jpg", ".jpeg", ".png", ".webp", ".heic"}:
         ext = ".jpg"
     filename = f"{photo_type}_{record_id}_{int(time.time())}{ext}"
@@ -439,7 +487,7 @@ async def upload_photo(photo_type: str, record_id: str, file: UploadFile = File(
 
 @app.get("/photos/{filename}")
 async def serve_photo(filename: str):
-    filepath = PHOTOS_DIR / Path(filename).name
+    filepath = PHOTOS_DIR / sanitize_filename(filename)
     if not filepath.exists():
         return JSONResponse({"error": "Not found"}, status_code=404)
     return FileResponse(str(filepath))
