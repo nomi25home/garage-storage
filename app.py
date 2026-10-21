@@ -253,18 +253,24 @@ async def bulk_tag(request: Request):
         return JSONResponse({"error": "item_ids and tags required"}, status_code=400)
     mode = data.get("mode", "add")
     conn = get_db()
-    for item_id in item_ids:
-        row = conn.execute("SELECT tags FROM items WHERE item_id=?", (item_id,)).fetchone()
-        if not row:
-            continue
-        existing = [t.strip() for t in (row["tags"] or "").split(",") if t.strip()]
-        if mode == "remove":
-            merged = [t for t in existing if t not in tags]
-        else:
-            merged = list(dict.fromkeys(existing + tags))
-        conn.execute("UPDATE items SET tags=? WHERE item_id=?", (",".join(merged), item_id))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("BEGIN")
+        for item_id in item_ids:
+            row = conn.execute("SELECT tags FROM items WHERE item_id=?", (item_id,)).fetchone()
+            if not row:
+                continue
+            existing = [t.strip() for t in (row["tags"] or "").split(",") if t.strip()]
+            if mode == "remove":
+                merged = [t for t in existing if t not in tags]
+            else:
+                merged = list(dict.fromkeys(existing + tags))
+            conn.execute("UPDATE items SET tags=? WHERE item_id=?", (",".join(merged), item_id))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
     return JSONResponse({"ok": True, "updated": len(item_ids)})
 
 
@@ -481,15 +487,21 @@ async def move_items(request: Request):
     if not item_ids or not target_bin:
         return JSONResponse({"error": "item_ids and bin_id required"}, status_code=400)
     conn = get_db()
-    if not conn.execute("SELECT 1 FROM bins WHERE bin_id=?", (target_bin,)).fetchone():
+    try:
+        conn.execute("BEGIN")
+        if not conn.execute("SELECT 1 FROM bins WHERE bin_id=?", (target_bin,)).fetchone():
+            conn.rollback()
+            return JSONResponse({"error": f"Bin '{target_bin}' not found"}, status_code=404)
+        conn.execute(
+            f"UPDATE items SET bin_id=? WHERE item_id IN ({','.join('?' * len(item_ids))})",
+            [target_bin] + item_ids,
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
         conn.close()
-        return JSONResponse({"error": f"Bin '{target_bin}' not found"}, status_code=404)
-    conn.execute(
-        f"UPDATE items SET bin_id=? WHERE item_id IN ({','.join('?' * len(item_ids))})",
-        [target_bin] + item_ids,
-    )
-    conn.commit()
-    conn.close()
     return JSONResponse({"ok": True, "moved": len(item_ids)})
 
 
