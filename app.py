@@ -629,6 +629,7 @@ async def backup_database():
 async def download_full_backup():
     """Stream a zip archive containing the live DB snapshot and all photos."""
     import tempfile
+
     zip_buffer = io.BytesIO()
     try:
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
