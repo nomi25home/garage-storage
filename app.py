@@ -345,7 +345,7 @@ async def api_get_items(search: str = ""):
 async def login(request: Request):
     if not AUTHENTIK_CLIENT_ID:
         return RedirectResponse("/")
-    redirect_uri = request.url_for("auth_callback")
+    redirect_uri = BASE_URL.rstrip("/") + "/auth/callback"
     return await oauth.authentik.authorize_redirect(request, redirect_uri)
 
 
