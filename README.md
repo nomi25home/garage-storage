@@ -12,7 +12,7 @@
 
 | Feature | Description |
 |---|---|
-| **Location hierarchy** | Zone → Room → Shelf → Bin — multi-select filter chips for each level |
+| **Location hierarchy** | Room → Zone → Shelf → Bin — multi-select filter chips for each level |
 | **Items table** | Photo thumbnail, name, category, qty, location, and tags in one view |
 | **Inline editing** | Edit any item's name, category, quantity, and tags without leaving the page |
 | **Move items** | Move one or many items to a different bin via a modal picker |
@@ -196,7 +196,7 @@ The sync is intentionally append-only to prevent silent overwrites of locally ed
 ## Database Schema
 
 ```sql
-bins       (bin_id PK, zone, room, shelf_number, color_code, bin_photo)
+bins       (bin_id PK, room, zone, shelf_number, color_code, bin_photo)
 items      (item_id PK, bin_id FK, name, category, quantity, tags, item_photo)
 tag_colors (tag_name PK, hex)
 ```
