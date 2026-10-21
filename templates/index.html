@@ -199,6 +199,7 @@ select.in { cursor: pointer; }
   <button class="btn" onclick="openAddItem()"><span class="ms">inventory</span><span class="hide-sm">{{ t.nav.pack_item }}</span></button>
   <button class="icon-btn" title="{{ t.nav.export_csv }}" onclick="window.location.href='/export/csv'"><span class="ms">download</span></button>
   <button class="icon-btn" title="{{ t.nav.backup }}" onclick="window.location.href='/api/backup'"><span class="ms">database</span></button>
+  <button class="icon-btn" id="dlBackupBtn" title="Download full backup (.zip)" onclick="triggerFullBackup()"><span class="ms">backup</span></button>
 </header>
 
 <section class="strip" id="strip">
@@ -1038,6 +1039,15 @@ $("q").addEventListener("input", e => {
 
 load();
 setInterval(() => { if (!$("modalBg").classList.contains("open") && !selected) load(); }, 30000);
+
+function triggerFullBackup() {
+  const btn = document.getElementById("dlBackupBtn");
+  const icon = btn.querySelector(".ms");
+  icon.textContent = "hourglass_empty";
+  btn.disabled = true;
+  window.location.href = "/api/backup/download";
+  setTimeout(() => { icon.textContent = "backup"; btn.disabled = false; }, 3000);
+}
 </script>
 {% endif %}
 
