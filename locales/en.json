@@ -1,0 +1,89 @@
+{
+  "app_name": "Kapaat",
+  "search_placeholder": "Item, category, or box ID…",
+  "nav": {
+    "add_box": "Add Box",
+    "pack_item": "Pack Item",
+    "export_csv": "Export CSV",
+    "backup": "Download DB backup",
+    "view_all_boxes": "View all boxes"
+  },
+  "table": {
+    "col_item": "Item",
+    "col_qty": "Qty",
+    "col_box": "Box",
+    "col_location": "Location"
+  },
+  "status": {
+    "loading": "Loading…",
+    "no_match": "No items match."
+  },
+  "bin": {
+    "all_inventory": "All Inventory",
+    "no_items_yet": "No items in this box yet.",
+    "all_boxes_title": "All Boxes",
+    "all_boxes_desc": "{count} box{es} · click to open",
+    "edit_btn": "Edit box",
+    "delete_btn": "Delete box",
+    "pack_item_here": "Pack Item Here",
+    "add_photo": "Add photo"
+  },
+  "item": {
+    "edit_btn": "Edit item",
+    "move_btn": "Move to another box",
+    "photo_btn": "Add/update photo",
+    "delete_btn": "Delete item",
+    "save": "Save",
+    "cancel": "Cancel",
+    "custom_tag": "Custom tag…",
+    "add_tag": "Add",
+    "name_ph": "Item name",
+    "category_ph": "Category",
+    "qty_ph": "Qty"
+  },
+  "bulk": {
+    "move": "Move {count}",
+    "custom_tag_ph": "custom tag…",
+    "no_tags": "no tags on selected items"
+  },
+  "modal": {
+    "cancel": "Cancel",
+    "add_box_title": "Register New Box",
+    "add_box_desc": "Add a storage container to the inventory",
+    "box_id_label": "Box ID *",
+    "box_id_ph": "e.g. BIN-10",
+    "zone_label": "Zone *",
+    "zone_ph": "e.g. Garage",
+    "room_label": "Room",
+    "room_ph": "e.g. Workshop",
+    "shelf_label": "Shelf *",
+    "shelf_ph": "e.g. Row 2",
+    "container_label": "Container Description *",
+    "container_ph": "e.g. Large Yellow Lid",
+    "register": "Register Box",
+    "pack_item_title": "Pack Item",
+    "pack_item_desc": "Log an item into a storage box",
+    "item_name_label": "Item Name *",
+    "item_name_ph": "e.g. Teflon tape",
+    "category_label": "Category *",
+    "category_ph": "e.g. Plumbing",
+    "qty_label": "Quantity *",
+    "log_item": "Log Item",
+    "move_to_box_title": "Move to Box",
+    "move": "Move",
+    "edit_box_title": "Edit Box",
+    "save": "Save",
+    "tag_colors_title": "Tag Colors",
+    "tag_colors_desc": "Choose a color for each tag — applied everywhere",
+    "photo_title": "Photo"
+  },
+  "confirm": {
+    "delete_box": "Delete box \"{id}\" and all its items?",
+    "delete_item": "Delete \"{name}\"?"
+  },
+  "toast": {
+    "moved_items": "Moved {count} item{s} to {bin}",
+    "delete_failed": "Delete failed: ",
+    "save_failed": "Save failed: "
+  }
+}

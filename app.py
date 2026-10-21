@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import sqlite3
@@ -7,11 +8,27 @@ from pathlib import Path
 import requests
 from fastapi import FastAPI, Request, Form, BackgroundTasks, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import pandas as pd
 
 app = FastAPI(title=os.environ.get("APP_TITLE", "Kapaat"))
 templates = Jinja2Templates(directory="templates")
+
+if Path("static").exists():
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+_LOCALE_DIR = Path(os.environ.get("LOCALE_DIR", "locales"))
+_ACTIVE_LOCALE = os.environ.get("LOCALE", "en")
+
+def _load_locale(code: str) -> dict:
+    path = _LOCALE_DIR / f"{code}.json"
+    if not path.exists():
+        path = _LOCALE_DIR / "en.json"
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+_LOCALE = _load_locale(_ACTIVE_LOCALE)
 DB_NAME = os.environ.get("DB_PATH", "/data/garage_inventory.db")
 PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR", "/data/photos"))
 
@@ -226,7 +243,8 @@ async def dashboard(request: Request, search: str = ""):
     conn.close()
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "bins": bins, "items": items, "search": search, "single_bin": None},
+        {"request": request, "bins": bins, "items": items, "search": search, "single_bin": None,
+         "t": _LOCALE, "locale_json": json.dumps(_LOCALE, ensure_ascii=False)},
     )
 
 
@@ -244,7 +262,8 @@ async def view_single_bin(request: Request, bin_id: str):
 
     return templates.TemplateResponse(
         "index.html",
-        {"request": request, "bins": [], "items": items, "search": "", "single_bin": target_bin},
+        {"request": request, "bins": [], "items": items, "search": "", "single_bin": target_bin,
+         "t": _LOCALE, "locale_json": json.dumps(_LOCALE, ensure_ascii=False)},
     )
 
 

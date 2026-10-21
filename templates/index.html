@@ -130,9 +130,9 @@ select.in { cursor: pointer; }
 {% if single_bin %}
 <!-- ── Mobile single-bin scan landing page ── -->
 <header>
-  <a class="brand" href="/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" style="flex-shrink:0"><rect width="32" height="32" rx="6" fill="%230f1923"/><rect x="5" y="5" width="22" height="22" rx="2" fill="none" stroke="#4cd7f6" stroke-width="2"/><line x1="5" y1="16" x2="27" y2="16" stroke="#4cd7f6" stroke-width="1.5"/><line x1="16" y1="5" x2="16" y2="27" stroke="#4cd7f6" stroke-width="1.2"/><circle cx="12.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="19.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="12.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/><circle cx="19.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/></svg><span>Kapaat</span></a>
+  <a class="brand" href="/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" style="flex-shrink:0"><rect width="32" height="32" rx="6" fill="%230f1923"/><rect x="5" y="5" width="22" height="22" rx="2" fill="none" stroke="#4cd7f6" stroke-width="2"/><line x1="5" y1="16" x2="27" y2="16" stroke="#4cd7f6" stroke-width="1.5"/><line x1="16" y1="5" x2="16" y2="27" stroke="#4cd7f6" stroke-width="1.2"/><circle cx="12.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="19.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="12.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/><circle cx="19.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/></svg><span>{{ t.app_name }}</span></a>
   <div class="spacer"></div>
-  <a href="/" class="btn"><span class="ms">arrow_back</span>All Inventory</a>
+  <a href="/" class="btn"><span class="ms">arrow_back</span>{{ t.bin.all_inventory }}</a>
 </header>
 
 <div class="bin-page">
@@ -176,7 +176,7 @@ select.in { cursor: pointer; }
       </tbody>
     </table>
     {% else %}
-    <div class="empty">No items in this box yet.</div>
+    <div class="empty">{{ t.bin.no_items_yet }}</div>
     {% endif %}
   </div>
 </div>
@@ -184,18 +184,18 @@ select.in { cursor: pointer; }
 {% else %}
 <!-- ── Main SPA dashboard ── -->
 <header>
-  <a class="brand" href="/" onclick="return goHome(event)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" style="flex-shrink:0"><rect width="32" height="32" rx="6" fill="%230f1923"/><rect x="5" y="5" width="22" height="22" rx="2" fill="none" stroke="#4cd7f6" stroke-width="2"/><line x1="5" y1="16" x2="27" y2="16" stroke="#4cd7f6" stroke-width="1.5"/><line x1="16" y1="5" x2="16" y2="27" stroke="#4cd7f6" stroke-width="1.2"/><circle cx="12.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="19.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="12.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/><circle cx="19.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/></svg><span>Kapaat</span></a>
-  <div class="crumb"><button class="pill" id="crumbCount" onclick="openAllBins()" title="View all boxes" style="cursor:pointer;background:var(--high);border:1px solid var(--outline-var);border-radius:3px;padding:2px 6px;font:600 11px var(--mono);color:var(--on-var)">…</button></div>
-  <div class="search"><span class="ms">search</span><input id="q" placeholder="Item, category, or box ID…" autocomplete="off"><kbd>/</kbd></div>
+  <a class="brand" href="/" onclick="return goHome(event)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" style="flex-shrink:0"><rect width="32" height="32" rx="6" fill="%230f1923"/><rect x="5" y="5" width="22" height="22" rx="2" fill="none" stroke="#4cd7f6" stroke-width="2"/><line x1="5" y1="16" x2="27" y2="16" stroke="#4cd7f6" stroke-width="1.5"/><line x1="16" y1="5" x2="16" y2="27" stroke="#4cd7f6" stroke-width="1.2"/><circle cx="12.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="19.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="12.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/><circle cx="19.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/></svg><span>{{ t.app_name }}</span></a>
+  <div class="crumb"><button class="pill" id="crumbCount" onclick="openAllBins()" title="{{ t.nav.view_all_boxes }}" style="cursor:pointer;background:var(--high);border:1px solid var(--outline-var);border-radius:3px;padding:2px 6px;font:600 11px var(--mono);color:var(--on-var)">…</button></div>
+  <div class="search"><span class="ms">search</span><input id="q" placeholder="{{ t.search_placeholder }}" autocomplete="off"><kbd>/</kbd></div>
   <div class="spacer"></div>
-  <button class="btn primary" onclick="openAddBin()"><span class="ms">add</span><span class="hide-sm">Add Box</span></button>
-  <button class="btn" onclick="openAddItem()"><span class="ms">inventory</span><span class="hide-sm">Pack Item</span></button>
-  <button class="icon-btn" title="Export CSV" onclick="window.location.href='/export/csv'"><span class="ms">download</span></button>
-  <button class="icon-btn" title="Download DB backup" onclick="window.location.href='/api/backup'"><span class="ms">database</span></button>
+  <button class="btn primary" onclick="openAddBin()"><span class="ms">add</span><span class="hide-sm">{{ t.nav.add_box }}</span></button>
+  <button class="btn" onclick="openAddItem()"><span class="ms">inventory</span><span class="hide-sm">{{ t.nav.pack_item }}</span></button>
+  <button class="icon-btn" title="{{ t.nav.export_csv }}" onclick="window.location.href='/export/csv'"><span class="ms">download</span></button>
+  <button class="icon-btn" title="{{ t.nav.backup }}" onclick="window.location.href='/api/backup'"><span class="ms">database</span></button>
 </header>
 
 <section class="strip" id="strip">
-  <div class="kpis" id="kpis"><span class="muted mono">Loading…</span></div>
+  <div class="kpis" id="kpis"><span class="muted mono">{{ t.status.loading }}</span></div>
 </section>
 
 <div class="layout">
@@ -207,15 +207,15 @@ select.in { cursor: pointer; }
         <tr>
           <th style="width:32px;padding:8px 4px 8px 12px"><input type="checkbox" id="chkAll" onchange="toggleAllItems(this.checked)" style="cursor:pointer;accent-color:var(--primary)"></th>
           <th style="width:48px"></th>
-          <th style="width:220px">Item</th>
-          <th style="width:70px">Qty</th>
-          <th style="width:120px">Box</th>
-          <th class="col-zone">Location</th>
+          <th style="width:220px">{{ t.table.col_item }}</th>
+          <th style="width:70px">{{ t.table.col_qty }}</th>
+          <th style="width:120px">{{ t.table.col_box }}</th>
+          <th class="col-zone">{{ t.table.col_location }}</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
-    <div class="empty" id="empty" hidden>No items match.</div>
+    <div class="empty" id="empty" hidden>{{ t.status.no_match }}</div>
     <div class="foot"><span id="footLeft"></span><span id="footRight"></span></div>
   </div>
   <aside class="drawer" id="drawer"></aside>
@@ -227,6 +227,7 @@ select.in { cursor: pointer; }
 
 {% if not single_bin %}
 <script>
+const L = {{ locale_json | safe }};
 let BINS = [];
 let ITEMS = [];
 let selected = null;
@@ -419,15 +420,15 @@ function renderDrawer() {
 
   const itemRows = items.length
     ? items.map(i => editingItemId === i.item_id ? renderItemEditForm(i) : renderItemRow(i)).join("")
-    : `<div class="muted mono" style="padding:4px">No items in this box yet.</div>`;
+    : `<div class="muted mono" style="padding:4px">${L.bin.no_items_yet}</div>`;
 
   $("drawer").innerHTML = `
     <div class="dh">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h3><span class="ms" style="color:var(--primary)">inventory_2</span>${esc(bin.bin_id)}</h3>
         <div style="display:flex;gap:2px">
-          <button class="icon-btn" title="Edit box" onclick="openBinEdit('${esc(bin.bin_id)}')"><span class="ms">edit</span></button>
-          <button class="icon-btn" title="Delete box" onclick="deleteBin('${esc(bin.bin_id)}')"><span class="ms" style="color:var(--error)">delete_forever</span></button>
+          <button class="icon-btn" title="${L.bin.edit_btn}" onclick="openBinEdit('${esc(bin.bin_id)}')"><span class="ms">edit</span></button>
+          <button class="icon-btn" title="${L.bin.delete_btn}" onclick="deleteBin('${esc(bin.bin_id)}')"><span class="ms" style="color:var(--error)">delete_forever</span></button>
           <button class="icon-btn" onclick="closeDrawer()"><span class="ms">close</span></button>
         </div>
       </div>
@@ -464,7 +465,7 @@ function renderDrawer() {
 
     <div style="height:12px"></div>
     <div class="dfoot">
-      <button class="btn primary" onclick="openAddItem('${esc(bin.bin_id)}')"><span class="ms">add</span>Pack Item Here</button>
+      <button class="btn primary" onclick="openAddItem('${esc(bin.bin_id)}')"><span class="ms">add</span>${L.bin.pack_item_here}</button>
     </div>`;
 }
 
@@ -507,7 +508,7 @@ function openAllBins() {
   }).join("");
   modal(`
     <div class="mh">
-      <div><h2>All Boxes</h2><p>${BINS.length} box${BINS.length === 1 ? "" : "es"} · click to open</p></div>
+      <div><h2>${L.bin.all_boxes_title}</h2><p>${BINS.length} box${BINS.length === 1 ? "" : "es"} · click to open</p></div>
       <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button>
     </div>
     <div style="padding:12px;display:grid;gap:8px;max-height:60vh;overflow-y:auto">
@@ -547,13 +548,13 @@ function renderBulkBar(list) {
     <button class="btn${!modeAdd?' danger':''}" onclick="setBulkMode('remove')" style="height:22px;font-size:9px">– Remove tags</button>
     <span style="color:var(--outline-var);margin:0 2px">|</span>
     ${chips}
-    ${modeAdd ? `<input class="in" id="_bulkTagInput" placeholder="custom tag…" style="height:22px;width:100px;font-size:10px" onkeydown="if(event.key==='Enter'){event.preventDefault();addBulkTagFromInput()}">` : (tagsOnSelected.length===0?'<span style="color:var(--outline)">no tags on selected items</span>':'')}
+    ${modeAdd ? `<input class="in" id="_bulkTagInput" placeholder="${L.bulk.custom_tag_ph}" style="height:22px;width:100px;font-size:10px" onkeydown="if(event.key==='Enter'){event.preventDefault();addBulkTagFromInput()}">` : (tagsOnSelected.length===0?`<span style="color:var(--outline)">${L.bulk.no_tags}</span>`:'')}
     <button class="btn${modeAdd?' primary':' danger'}" onclick="applyBulkTags()" style="height:22px;font-size:9px" ${bulkTags.length===0?'disabled':''}>
       <span class="ms" style="font-size:13px">${modeAdd?'label':'label_off'}</span>${modeAdd?'Apply to':'Remove from'} ${selectedItems.size}
     </button>
     <span style="color:var(--outline-var);margin:0 2px">|</span>
     <button class="btn" onclick="openMoveItems([...selectedItems],'${selectedItems.size} items')" style="height:22px;font-size:9px">
-      <span class="ms" style="font-size:13px">move_item</span>Move ${selectedItems.size}
+      <span class="ms" style="font-size:13px">move_item</span>${L.bulk.move.replace('{count}', selectedItems.size)}
     </button>
   </div>`;
 }
@@ -620,7 +621,7 @@ function openTagColors() {
   }).join('');
   modal(`
     <div class="mh">
-      <div><h2>Tag Colors</h2><p>Choose a color for each tag — applied everywhere</p></div>
+      <div><h2>${L.modal.tag_colors_title}</h2><p>${L.modal.tag_colors_desc}</p></div>
       <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button>
     </div>
     <div style="padding:12px;max-height:60vh;overflow-y:auto">${rows}</div>
@@ -661,23 +662,23 @@ function closeModal() { $("modalBg").classList.remove("open"); }
 
 function openAddBin() {
   modal(`
-    <div class="mh"><div><h2>Register New Box</h2><p>Add a storage container to the inventory</p></div>
+    <div class="mh"><div><h2>${L.modal.add_box_title}</h2><p>${L.modal.add_box_desc}</p></div>
       <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
     <div class="mb">
-      <div><label class="f">Box ID *</label><input class="in" id="bId" placeholder="e.g. BIN-10" autocomplete="off"></div>
+      <div><label class="f">${L.modal.box_id_label}</label><input class="in" id="bId" placeholder="${L.modal.box_id_ph}" autocomplete="off"></div>
       <div class="row2">
-        <div><label class="f">Zone *</label><input class="in" id="bZone" placeholder="e.g. Garage" list="zoneList"></div>
-        <div><label class="f">Room</label><input class="in" id="bRoom" placeholder="e.g. Workshop" list="roomList"></div>
+        <div><label class="f">${L.modal.zone_label}</label><input class="in" id="bZone" placeholder="${L.modal.zone_ph}" list="zoneList"></div>
+        <div><label class="f">${L.modal.room_label}</label><input class="in" id="bRoom" placeholder="${L.modal.room_ph}" list="roomList"></div>
       </div>
-      <div><label class="f">Shelf *</label><input class="in" id="bShelf" placeholder="e.g. Row 2"></div>
+      <div><label class="f">${L.modal.shelf_label}</label><input class="in" id="bShelf" placeholder="${L.modal.shelf_ph}"></div>
       <datalist id="zoneList">${[...new Set(BINS.map(b => b.zone))].map(z => `<option value="${esc(z)}">`).join("")}</datalist>
       <datalist id="roomList">${[...new Set(BINS.map(b => b.room).filter(Boolean))].map(r => `<option value="${esc(r)}">`).join("")}</datalist>
-      <div><label class="f">Container Description *</label><input class="in" id="bColor" placeholder="e.g. Large Yellow Lid"></div>
+      <div><label class="f">${L.modal.container_label}</label><input class="in" id="bColor" placeholder="${L.modal.container_ph}"></div>
       <div class="err" id="bErr"></div>
     </div>
     <div class="mf">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn primary" id="bSave" onclick="saveAddBin()"><span class="ms">done</span>Register Box</button>
+      <button class="btn" onclick="closeModal()">${L.modal.cancel}</button>
+      <button class="btn primary" id="bSave" onclick="saveAddBin()"><span class="ms">done</span>${L.modal.register}</button>
     </div>`);
 }
 
@@ -699,22 +700,22 @@ async function saveAddBin() {
 function openAddItem(prefillBin) {
   const opts = BINS.map(b => `<option value="${esc(b.bin_id)}" ${b.bin_id === prefillBin ? "selected" : ""}>${esc(b.bin_id)} — ${esc(b.zone)}</option>`).join("");
   modal(`
-    <div class="mh"><div><h2>Pack Item</h2><p>Log an item into a storage box</p></div>
+    <div class="mh"><div><h2>${L.modal.pack_item_title}</h2><p>${L.modal.pack_item_desc}</p></div>
       <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
     <div class="mb">
       <div><label class="f">Destination Box *</label>
         <select class="in" id="iBox"><option value="" disabled ${!prefillBin ? "selected" : ""}>Select box…</option>${opts}</select></div>
-      <div><label class="f">Item Name *</label><input class="in" id="iName" placeholder="e.g. Teflon tape" autocomplete="off"></div>
+      <div><label class="f">${L.modal.item_name_label}</label><input class="in" id="iName" placeholder="${L.modal.item_name_ph}" autocomplete="off"></div>
       <div class="row2">
-        <div><label class="f">Category *</label><input class="in" id="iCat" placeholder="e.g. Plumbing" list="catList">
+        <div><label class="f">${L.modal.category_label}</label><input class="in" id="iCat" placeholder="${L.modal.category_ph}" list="catList">
           <datalist id="catList">${[...new Set(ITEMS.map(i => i.category))].map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>
-        <div><label class="f">Quantity *</label><input class="in" id="iQty" type="number" value="1" min="1"></div>
+        <div><label class="f">${L.modal.qty_label}</label><input class="in" id="iQty" type="number" value="1" min="1"></div>
       </div>
       <div class="err" id="iErr"></div>
     </div>
     <div class="mf">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn primary" id="iSave" onclick="saveAddItem()"><span class="ms">done</span>Log Item</button>
+      <button class="btn" onclick="closeModal()">${L.modal.cancel}</button>
+      <button class="btn primary" id="iSave" onclick="saveAddItem()"><span class="ms">done</span>${L.modal.log_item}</button>
     </div>`);
 }
 
@@ -740,7 +741,7 @@ function openMoveItems(itemIds, label) {
     return `<option value="${esc(b.bin_id)}">${esc(b.bin_id)} — ${esc(loc)} (${cnt} items)</option>`;
   }).join('');
   modal(`
-    <div class="mh"><div><h2>Move to Box</h2><p>${esc(String(label))}</p></div>
+    <div class="mh"><div><h2>${L.modal.move_to_box_title}</h2><p>${esc(String(label))}</p></div>
       <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
     <div class="mb">
       <div><label class="f">Destination Box *</label>
@@ -749,8 +750,8 @@ function openMoveItems(itemIds, label) {
       <div class="err" id="mvErr"></div>
     </div>
     <div class="mf">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn primary" id="mvSave" onclick="saveMoveItems(${JSON.stringify(itemIds)})"><span class="ms">move_item</span>Move</button>
+      <button class="btn" onclick="closeModal()">${L.modal.cancel}</button>
+      <button class="btn primary" id="mvSave" onclick="saveMoveItems(${JSON.stringify(itemIds)})"><span class="ms">move_item</span>${L.modal.move}</button>
     </div>`);
 }
 
@@ -765,7 +766,7 @@ async function saveMoveItems(itemIds) {
       body: JSON.stringify({item_ids: itemIds, bin_id: binId}),
     });
     closeModal();
-    toast(`Moved ${res.moved} item${res.moved===1?'':'s'} to ${binId}`);
+    toast(L.toast.moved_items.replace('{count}', res.moved).replace('{s}', res.moved===1?'':'s').replace('{bin}', binId));
     selectedItems = new Set();
     await load();
     select(binId);
@@ -778,22 +779,22 @@ function openBinEdit(binId) {
   const zoneOpts = [...new Set(BINS.map(b => b.zone))].map(z => `<option value="${esc(z)}">`).join('');
   const roomOpts = [...new Set(BINS.map(b => b.room).filter(Boolean))].map(r => `<option value="${esc(r)}">`).join('');
   modal(`
-    <div class="mh"><div><h2>Edit Box</h2><p>${esc(bin.bin_id)}</p></div>
+    <div class="mh"><div><h2>${L.modal.edit_box_title}</h2><p>${esc(bin.bin_id)}</p></div>
       <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
     <div class="mb">
       <div class="row2">
-        <div><label class="f">Zone *</label><input class="in" id="ebZone" value="${esc(bin.zone)}" list="ebZoneList"></div>
-        <div><label class="f">Room</label><input class="in" id="ebRoom" value="${esc(bin.room||'')}" list="ebRoomList"></div>
+        <div><label class="f">${L.modal.zone_label}</label><input class="in" id="ebZone" value="${esc(bin.zone)}" list="ebZoneList"></div>
+        <div><label class="f">${L.modal.room_label}</label><input class="in" id="ebRoom" value="${esc(bin.room||'')}" list="ebRoomList"></div>
       </div>
-      <div><label class="f">Shelf *</label><input class="in" id="ebShelf" value="${esc(bin.shelf_number)}"></div>
-      <div><label class="f">Container Description *</label><input class="in" id="ebColor" value="${esc(bin.color_code)}"></div>
+      <div><label class="f">${L.modal.shelf_label}</label><input class="in" id="ebShelf" value="${esc(bin.shelf_number)}"></div>
+      <div><label class="f">${L.modal.container_label}</label><input class="in" id="ebColor" value="${esc(bin.color_code)}"></div>
       <datalist id="ebZoneList">${zoneOpts}</datalist>
       <datalist id="ebRoomList">${roomOpts}</datalist>
       <div class="err" id="ebErr"></div>
     </div>
     <div class="mf">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button class="btn primary" id="ebSave" onclick="saveBinEdit('${esc(bin.bin_id)}')"><span class="ms">done</span>Save</button>
+      <button class="btn" onclick="closeModal()">${L.modal.cancel}</button>
+      <button class="btn primary" id="ebSave" onclick="saveBinEdit('${esc(bin.bin_id)}')"><span class="ms">done</span>${L.modal.save}</button>
     </div>`);
 }
 
@@ -820,23 +821,23 @@ async function deleteBin(binId) {
     toast(`Remove all ${items.length} item(s) from ${binId} first.`, true);
     return;
   }
-  if (!confirm(`Permanently delete box "${binId}"? This cannot be undone.`)) return;
+  if (!confirm(L.confirm.delete_box.replace('{id}', binId))) return;
   try {
     await api(`/delete-bin/${encodeURIComponent(binId)}`, { method: "DELETE" });
     toast(`Box ${binId} deleted`);
     closeDrawer();
     await load();
-  } catch (e) { toast("Delete failed: " + e.message, true); }
+  } catch (e) { toast(L.toast.delete_failed + e.message, true); }
 }
 
 async function deleteItem(itemId, name) {
-  if (!confirm(`Delete "${name}"?`)) return;
+  if (!confirm(L.confirm.delete_item.replace('{name}', name))) return;
   try {
     await api(`/delete-item/${itemId}`, { method: "DELETE" });
     toast(`"${name}" removed`);
     await load();
     if (selected) renderDrawer();
-  } catch (e) { toast("Delete failed: " + e.message, true); }
+  } catch (e) { toast(L.toast.delete_failed + e.message, true); }
 }
 
 function renderItemRow(i) {
@@ -852,10 +853,10 @@ function renderItemRow(i) {
     </div>
     <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
       <span class="mono" style="color:var(--primary);font-size:13px;margin-right:4px">${i.quantity}</span>
-      <button class="icon-btn" title="Edit item" onclick="startEditItem(${i.item_id})"><span class="ms" style="font-size:15px">edit</span></button>
-      <button class="icon-btn" title="Move to another box" onclick="openMoveItems([${i.item_id}],'${esc(i.name)}')"><span class="ms" style="font-size:15px">move_item</span></button>
-      <button class="icon-btn" title="Add/update photo" onclick="takeItemPhoto(${i.item_id})"><span class="ms" style="font-size:15px">photo_camera</span></button>
-      <button class="icon-btn" title="Delete item" onclick="deleteItem(${i.item_id},'${esc(i.name)}')"><span class="ms" style="font-size:15px;color:var(--error)">delete</span></button>
+      <button class="icon-btn" title="${L.item.edit_btn}" onclick="startEditItem(${i.item_id})"><span class="ms" style="font-size:15px">edit</span></button>
+      <button class="icon-btn" title="${L.item.move_btn}" onclick="openMoveItems([${i.item_id}],'${esc(i.name)}')"><span class="ms" style="font-size:15px">move_item</span></button>
+      <button class="icon-btn" title="${L.item.photo_btn}" onclick="takeItemPhoto(${i.item_id})"><span class="ms" style="font-size:15px">photo_camera</span></button>
+      <button class="icon-btn" title="${L.item.delete_btn}" onclick="deleteItem(${i.item_id},'${esc(i.name)}')"><span class="ms" style="font-size:15px;color:var(--error)">delete</span></button>
     </div>
   </div>`;
 }
@@ -876,23 +877,23 @@ function renderItemEditForm(i) {
       <span style="font:600 10px var(--mono);color:var(--outline);letter-spacing:.06em">EDITING ITEM</span>
       <button class="icon-btn" onclick="cancelItemEdit()"><span class="ms" style="font-size:15px">close</span></button>
     </div>
-    <input class="in" id="_eName_${i.item_id}" value="${esc(editingVals.name)}" placeholder="Item name" style="height:30px">
+    <input class="in" id="_eName_${i.item_id}" value="${esc(editingVals.name)}" placeholder="${L.item.name_ph}" style="height:30px">
     <div style="display:grid;grid-template-columns:1fr 72px;gap:6px">
-      <input class="in" id="_eCat_${i.item_id}" value="${esc(editingVals.category)}" placeholder="Category" style="height:30px">
-      <input class="in" id="_eQty_${i.item_id}" type="number" min="1" value="${editingVals.quantity}" placeholder="Qty" style="height:30px">
+      <input class="in" id="_eCat_${i.item_id}" value="${esc(editingVals.category)}" placeholder="${L.item.category_ph}" style="height:30px">
+      <input class="in" id="_eQty_${i.item_id}" type="number" min="1" value="${editingVals.quantity}" placeholder="${L.item.qty_ph}" style="height:30px">
     </div>
     <div>
       <div style="font:600 10px var(--mono);color:var(--outline);letter-spacing:.06em;margin-bottom:5px">TAGS</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px">${presetChips}</div>
       ${editingTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${selectedTagPills}</div>` : ''}
       <div style="display:flex;gap:4px;margin-top:6px">
-        <input class="in" id="_eTagInput_${i.item_id}" placeholder="Custom tag…" style="height:26px;font-size:11px" onkeydown="if(event.key==='Enter'){event.preventDefault();addEditTagFromInput(${i.item_id})}">
-        <button class="btn" type="button" onclick="addEditTagFromInput(${i.item_id})" style="height:26px;padding:0 8px;font-size:11px">Add</button>
+        <input class="in" id="_eTagInput_${i.item_id}" placeholder="${L.item.custom_tag}" style="height:26px;font-size:11px" onkeydown="if(event.key==='Enter'){event.preventDefault();addEditTagFromInput(${i.item_id})}">
+        <button class="btn" type="button" onclick="addEditTagFromInput(${i.item_id})" style="height:26px;padding:0 8px;font-size:11px">${L.item.add_tag}</button>
       </div>
     </div>
     <div style="display:flex;gap:6px">
-      <button class="btn primary" type="button" onclick="saveItemEdit(${i.item_id})" style="flex:1;height:30px"><span class="ms" style="font-size:14px">done</span>Save</button>
-      <button class="btn" type="button" onclick="cancelItemEdit()" style="height:30px">Cancel</button>
+      <button class="btn primary" type="button" onclick="saveItemEdit(${i.item_id})" style="flex:1;height:30px"><span class="ms" style="font-size:14px">done</span>${L.item.save}</button>
+      <button class="btn" type="button" onclick="cancelItemEdit()" style="height:30px">${L.item.cancel}</button>
     </div>
   </div>`;
 }
@@ -935,7 +936,7 @@ async function saveItemEdit(itemId) {
     editingItemId = null; editingTags = []; editingVals = {name:'',category:'',quantity:1};
     await load();
     if (selected) renderDrawer();
-  } catch(e) { toast('Save failed: ' + e.message, true); }
+  } catch(e) { toast(L.toast.save_failed + e.message, true); }
 }
 
 function toggleEditTag(tag) {

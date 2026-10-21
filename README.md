@@ -92,7 +92,10 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `DB_PATH` | `/data/garage_inventory.db` | SQLite database path inside the container. |
 | `PHOTOS_DIR` | `/data/photos` | Photo storage directory inside the container. |
 | `APP_TITLE` | `Kapaat` | Browser tab title and API docs title. |
+| `LOCALE` | `en` | UI language code — must match a file in `locales/` (e.g. `en`). |
 | `TZ` | `America/New_York` | Timezone for timestamps. |
+
+> **Tip — QR scanning away from home:** `BASE_URL` must match what your phone can reach. On a local network, use your server's LAN IP (e.g. `http://192.168.1.10:8096`). For off-site scanning, set `BASE_URL` to your [Tailscale](https://tailscale.com/) IP or a zero-trust tunnel hostname — the QR deep-links will resolve wherever the phone has a Tailscale connection, making garage scans work even from a friend's WiFi.
 
 ---
 
@@ -162,6 +165,21 @@ browser  ──HTTP──▶  FastAPI (app.py)
 | `GET` | `/photos/{filename}` | Serve a stored photo |
 | `POST` | `/api/sync-row` | Ingest a row from Google Sheets (n8n) |
 | `GET` | `/export/{csv\|xlsx}` | Download full inventory |
+| `GET` | `/api/backup` | Download a point-in-time SQLite snapshot |
+
+### Google Sheets sync — conflict strategy
+
+`/api/sync-row` is a **Sheet → App** write path only. It creates a new item when the row has no `Item ID`; it does not update existing items.
+
+**What happens on a simultaneous edit?**
+
+| Scenario | Outcome |
+|---|---|
+| Item edited in Kapaat while the same row is unchanged in Sheets | Safe — Sheets later syncs the original values on next n8n run; they do not overwrite the Kapaat edit because `sync-row` only inserts rows with no `Item ID`. |
+| Item name changed in both Kapaat and Sheets before next n8n run | Kapaat wins — the Sheets row already has an `Item ID`, so `sync-row` skips it. The mismatch is visible in Sheets. |
+| Item deleted in Kapaat; row still in Sheets | The row's `Item ID` is orphaned in Sheets. A subsequent n8n run sees the `Item ID` present and skips re-insertion. Clean up the Sheets row manually or via a cleanup workflow. |
+
+The sync is intentionally append-only to prevent silent overwrites of locally edited data.
 
 ---
 
