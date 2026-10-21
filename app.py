@@ -73,6 +73,16 @@ BASE_URL = os.environ.get("BASE_URL", "http://localhost:8096")
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
 
 
+def get_db():
+    conn = sqlite3.connect(DB_NAME)
+    if DB_ENCRYPTION_KEY:
+        conn.execute(f"PRAGMA key = '{DB_ENCRYPTION_KEY}';")
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
 def init_db():
     os.makedirs(os.path.dirname(DB_NAME), exist_ok=True)
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -158,16 +168,6 @@ def init_db():
 
 
 init_db()
-
-
-def get_db():
-    conn = sqlite3.connect(DB_NAME)
-    if DB_ENCRYPTION_KEY:
-        conn.execute(f"PRAGMA key = '{DB_ENCRYPTION_KEY}';")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
 
 
 def sanitize_filename(name: str) -> str:
