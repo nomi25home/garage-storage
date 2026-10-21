@@ -1,6 +1,6 @@
 services:
   garage-storage:
-    build: .
+    image: ghcr.io/nomi25home/kapaat:1
     container_name: garage-storage
     restart: unless-stopped
     ports:
