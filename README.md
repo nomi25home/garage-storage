@@ -94,6 +94,7 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `APP_TITLE` | `Kapaat` | Browser tab title and API docs title. |
 | `LOCALE` | `en` | UI language code — must match a file in `locales/` (e.g. `en`). |
 | `TZ` | `America/New_York` | Timezone for timestamps. |
+| `DB_ENCRYPTION_KEY` | *(empty — disabled)* | Optional passphrase for AES-256 on-disk encryption via SQLCipher. Requires `ENABLE_SQLCIPHER=1` build arg. **If you lose this key, your data is unrecoverable.** |
 
 > **Tip — QR scanning away from home:** `BASE_URL` must match what your phone can reach. On a local network, use your server's LAN IP (e.g. `http://192.168.1.10:8096`). For off-site scanning, set `BASE_URL` to your [Tailscale](https://tailscale.com/) IP or a zero-trust tunnel hostname — the QR deep-links will resolve wherever the phone has a Tailscale connection, making garage scans work even from a friend's WiFi.
 
@@ -105,9 +106,17 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 Everything lives in a single SQLite file (`garage_inventory.db`) and a flat photo directory (`photos/`). Both are inside the Docker volume mapped to `/data`.
 
 **How do I back up my data?**  
+The easiest way is the **Download full backup** button in the navbar (the `backup` icon). It streams a `.zip` containing a live DB snapshot and all photos directly to your browser — no shell required.
+
+For automated or scheduled backups, use the shell approach:
 ```bash
 docker run --rm -v kapaat_data:/data -v $(pwd):/backup alpine \
   tar czf /backup/kapaat-backup-$(date +%F).tar.gz /data
+```
+
+Or hit the API directly:
+```bash
+curl -o kapaat-backup.zip https://bins.yourdomain.com/api/backup/download
 ```
 
 **How do I move to a new host?**  
@@ -165,7 +174,8 @@ browser  ──HTTP──▶  FastAPI (app.py)
 | `GET` | `/photos/{filename}` | Serve a stored photo |
 | `POST` | `/api/sync-row` | Ingest a row from Google Sheets (n8n) |
 | `GET` | `/export/{csv\|xlsx}` | Download full inventory |
-| `GET` | `/api/backup` | Download a point-in-time SQLite snapshot |
+| `GET` | `/api/backup` | Download a point-in-time SQLite snapshot (`.db`) |
+| `GET` | `/api/backup/download` | Download a full backup archive (DB + photos as `.zip`) |
 
 ### Google Sheets sync — conflict strategy
 

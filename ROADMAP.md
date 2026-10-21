@@ -2,15 +2,17 @@
 
 This document outlines the core post-v1.0.0 developmental milestones for Kapaat, prioritizing operational flexibility, multi-user concurrency, and data durability.
 
-## Active Phase: Hardening & Data Portability (P2)
+## Shipped in v1.1.0
 
-### 1. Unified Browser-Driven Backups
-*   **Target:** `/api/backup/download` endpoint.
-*   **Scope:** Build a Python routine that hot-copies the live SQLite database, bundles the `photos/` media assets, compresses them into a single `.zip` matrix, and streams it safely to the client web UI.
+### ✅ 1. Unified Browser-Driven Backups
+*   **Delivered:** `/api/backup/download` endpoint + navbar button.
+*   Hot-copies the live SQLite database via `sqlite3.backup()`, bundles all `photos/` assets, and streams a compressed `.zip` to the browser. One click from the navbar.
 
-### 2. Transparent Database Storage Encryption
-*   **Target:** SQLCipher runtime implementation.
-*   **Scope:** Add support for a `DB_ENCRYPTION_KEY` variable inside `.env`. If detected, wrap the SQLite connector layer with SQLCipher to handle on-disk block encryption for enhanced household asset privacy.
+### ✅ 2. Transparent Database Storage Encryption
+*   **Delivered:** Optional SQLCipher support via `DB_ENCRYPTION_KEY` env var.
+*   When set, the app swaps in `pysqlcipher3` at runtime for AES-256 on-disk encryption. Requires `ENABLE_SQLCIPHER=1` Docker build arg. Falls back to plain SQLite with a printed warning if the library is absent.
+
+## Active Phase: Schema & Sync Reliability (P2)
 
 ### 3. Structural Version Control (Migrations)
 *   **Target:** Schema upgrade runner logic.
