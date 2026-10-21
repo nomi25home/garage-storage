@@ -286,6 +286,26 @@ async def web_add_item(
     return JSONResponse({"ok": True, "item_id": item_id})
 
 
+@app.post("/api/move-items")
+async def move_items(request: Request):
+    data = await request.json()
+    item_ids = [int(i) for i in data.get("item_ids", []) if str(i).isdigit()]
+    target_bin = str(data.get("bin_id", "")).strip()
+    if not item_ids or not target_bin:
+        return JSONResponse({"error": "item_ids and bin_id required"}, status_code=400)
+    conn = get_db()
+    if not conn.execute("SELECT 1 FROM bins WHERE bin_id=?", (target_bin,)).fetchone():
+        conn.close()
+        return JSONResponse({"error": f"Bin '{target_bin}' not found"}, status_code=404)
+    conn.execute(
+        f"UPDATE items SET bin_id=? WHERE item_id IN ({','.join('?'*len(item_ids))})",
+        [target_bin] + item_ids,
+    )
+    conn.commit()
+    conn.close()
+    return JSONResponse({"ok": True, "moved": len(item_ids)})
+
+
 @app.patch("/update-bin/{bin_id}")
 async def update_bin(bin_id: str, request: Request):
     data = await request.json()

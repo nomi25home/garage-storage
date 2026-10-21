@@ -544,6 +544,10 @@ function renderBulkBar(list) {
     <button class="btn${modeAdd?' primary':' danger'}" onclick="applyBulkTags()" style="height:22px;font-size:9px" ${bulkTags.length===0?'disabled':''}>
       <span class="ms" style="font-size:13px">${modeAdd?'label':'label_off'}</span>${modeAdd?'Apply to':'Remove from'} ${selectedItems.size}
     </button>
+    <span style="color:var(--outline-var);margin:0 2px">|</span>
+    <button class="btn" onclick="openMoveItems([...selectedItems],'${selectedItems.size} items')" style="height:22px;font-size:9px">
+      <span class="ms" style="font-size:13px">move_item</span>Move ${selectedItems.size}
+    </button>
   </div>`;
 }
 
@@ -722,6 +726,45 @@ async function saveAddItem() {
   } catch (e) { $("iErr").textContent = e.message; $("iSave").disabled = false; }
 }
 
+function openMoveItems(itemIds, label) {
+  const opts = BINS.map(b => {
+    const cnt = ITEMS.filter(i => i.bin_id === b.bin_id).length;
+    const loc = [b.zone, b.room, b.shelf_number].filter(Boolean).join(' · ');
+    return `<option value="${esc(b.bin_id)}">${esc(b.bin_id)} — ${esc(loc)} (${cnt} items)</option>`;
+  }).join('');
+  modal(`
+    <div class="mh"><div><h2>Move to Box</h2><p>${esc(String(label))}</p></div>
+      <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
+    <div class="mb">
+      <div><label class="f">Destination Box *</label>
+        <select class="in" id="mvBin" style="height:36px">${opts}</select>
+      </div>
+      <div class="err" id="mvErr"></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="mvSave" onclick="saveMoveItems(${JSON.stringify(itemIds)})"><span class="ms">move_item</span>Move</button>
+    </div>`);
+}
+
+async function saveMoveItems(itemIds) {
+  const binId = $("mvBin").value;
+  if (!binId) { $("mvErr").textContent = "Select a destination box"; return; }
+  $("mvSave").disabled = true;
+  try {
+    const res = await api('/api/move-items', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({item_ids: itemIds, bin_id: binId}),
+    });
+    closeModal();
+    toast(`Moved ${res.moved} item${res.moved===1?'':'s'} to ${binId}`);
+    selectedItems = new Set();
+    await load();
+    select(binId);
+  } catch(e) { $("mvErr").textContent = e.message; $("mvSave").disabled = false; }
+}
+
 function openBinEdit(binId) {
   const bin = BINS.find(b => b.bin_id === binId);
   if (!bin) return;
@@ -803,6 +846,7 @@ function renderItemRow(i) {
     <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
       <span class="mono" style="color:var(--primary);font-size:13px;margin-right:4px">${i.quantity}</span>
       <button class="icon-btn" title="Edit item" onclick="startEditItem(${i.item_id})"><span class="ms" style="font-size:15px">edit</span></button>
+      <button class="icon-btn" title="Move to another box" onclick="openMoveItems([${i.item_id}],'${esc(i.name)}')"><span class="ms" style="font-size:15px">move_item</span></button>
       <button class="icon-btn" title="Add/update photo" onclick="takeItemPhoto(${i.item_id})"><span class="ms" style="font-size:15px">photo_camera</span></button>
       <button class="icon-btn" title="Delete item" onclick="deleteItem(${i.item_id},'${esc(i.name)}')"><span class="ms" style="font-size:15px;color:var(--error)">delete</span></button>
     </div>
