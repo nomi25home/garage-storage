@@ -499,19 +499,35 @@ async def backup_database():
 
 @app.get("/manifest.json")
 async def pwa_manifest():
+    name = os.environ.get("APP_TITLE", "Kapaat")
     return JSONResponse({
-        "name": os.environ.get("APP_TITLE", "Kapaat"),
-        "short_name": "Kapaat",
-        "description": "Self-hosted storage bin inventory",
+        "name": f"{name} — Garage Bin Inventory",
+        "short_name": name,
+        "description": "Track what's inside every storage box, where it lives, and find it fast.",
         "start_url": "/",
         "display": "standalone",
-        "background_color": "#0f1923",
+        "orientation": "portrait-primary",
+        "background_color": "#0b1326",
         "theme_color": "#4cd7f6",
         "icons": [
+            {"src": "/static/icon.svg", "type": "image/svg+xml", "sizes": "any"},
             {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
             {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"},
         ],
     })
+
+
+@app.get("/sw.js")
+async def service_worker():
+    js = """
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", e => e.waitUntil(clients.claim()));
+self.addEventListener("fetch", e => {
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+});
+""".strip()
+    from fastapi.responses import Response
+    return Response(content=js, media_type="application/javascript")
 
 
 @app.get("/export/{file_type}")
