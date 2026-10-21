@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f1923"/>
+      <stop offset="100%" stop-color="#1a2d3d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="320" height="80" rx="12" fill="url(#bg)"/>
+
+  <!-- Mini cabinet mark -->
+  <rect x="14" y="14" width="36" height="52" rx="4" fill="none" stroke="#4cd7f6" stroke-width="2.5"/>
+  <line x1="14" y1="40" x2="50" y2="40" stroke="#4cd7f6" stroke-width="2"/>
+  <line x1="32" y1="14" x2="32" y2="66" stroke="#4cd7f6" stroke-width="1.5"/>
+  <circle cx="26" cy="29" r="2.5" fill="#4cd7f6"/>
+  <circle cx="38" cy="29" r="2.5" fill="#4cd7f6"/>
+  <circle cx="26" cy="53" r="2.5" fill="#4cd7f6" opacity="0.55"/>
+  <circle cx="38" cy="53" r="2.5" fill="#4cd7f6" opacity="0.55"/>
+
+  <!-- Wordmark -->
+  <text x="64" y="50"
+    font-family="'DM Mono', 'Fira Mono', 'Consolas', monospace"
+    font-size="32"
+    font-weight="600"
+    letter-spacing="3"
+    fill="#4cd7f6">Kapaat</text>
+
+  <!-- Tagline -->
+  <text x="65" y="67"
+    font-family="'DM Mono', 'Fira Mono', 'Consolas', monospace"
+    font-size="10"
+    letter-spacing="2.5"
+    fill="#4cd7f6"
+    opacity="0.45">STORAGE INVENTORY</text>
+</svg>

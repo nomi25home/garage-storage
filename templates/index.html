@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nomi25home Storage</title>
+<title>Kapaat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -124,7 +124,7 @@ select.in { cursor: pointer; }
 {% if single_bin %}
 <!-- ── Mobile single-bin scan landing page ── -->
 <header>
-  <a class="brand" href="/"><span class="ms">inventory_2</span><span>nomi25home Storage</span></a>
+  <a class="brand" href="/"><span class="ms">inventory_2</span><span>Kapaat</span></a>
   <div class="spacer"></div>
   <a href="/" class="btn"><span class="ms">arrow_back</span>All Inventory</a>
 </header>
@@ -178,7 +178,7 @@ select.in { cursor: pointer; }
 {% else %}
 <!-- ── Main SPA dashboard ── -->
 <header>
-  <a class="brand" href="/" onclick="return goHome(event)"><span class="ms">inventory_2</span><span>nomi25home Storage</span></a>
+  <a class="brand" href="/" onclick="return goHome(event)"><span class="ms">inventory_2</span><span>Kapaat</span></a>
   <div class="crumb"><button class="pill" id="crumbCount" onclick="openAllBins()" title="View all boxes" style="cursor:pointer;background:var(--high);border:1px solid var(--outline-var);border-radius:3px;padding:2px 6px;font:600 11px var(--mono);color:var(--on-var)">…</button></div>
   <div class="search"><span class="ms">search</span><input id="q" placeholder="Item, category, or box ID…" autocomplete="off"><kbd>/</kbd></div>
   <div class="spacer"></div>
@@ -985,7 +985,7 @@ function printLabel(binId, qrUrl) {
   const w = window.open("", "_blank", "width=420,height=480");
   w.document.write(`<!doctype html><html><head><title>${binId}</title></head><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">
     <div style="text-align:center;font-family:sans-serif;padding:24px;border:3px dashed #000;border-radius:10px">
-      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#666;margin-bottom:8px">nomi25home Storage</div>
+      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#666;margin-bottom:8px">Kapaat</div>
       <img src="${qrUrl}" style="width:200px;height:200px">
       <div style="font-size:28px;font-weight:700;letter-spacing:.1em;margin:10px 0;font-family:monospace">${binId}</div>
       <button onclick="window.print();window.close()" style="padding:8px 20px;font-size:14px;cursor:pointer;border-radius:4px;border:1px solid #ccc">Print Now</button>

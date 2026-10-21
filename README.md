@@ -1,105 +1,190 @@
-# nomi25home Storage
+# Kapaat
 
-Garage bin inventory app — track what's in every storage box, where it lives, and find it fast.
+> **Kapaat** (Punjabi: ਕਪਾਟ — *cabinet, storage compartment*) is a self-hosted storage inventory app that tracks what's inside every physical storage box, where each box lives, and surfaces it through a fast single-page web UI.
 
-**Stack:** FastAPI · SQLite · Docker · single-page Jinja2 UI  
-**Deployed at:** `https://bins.home.mihirfamily.com` (Authentik `admins` group, Dockge stack `garage-storage` on `.45:8099`)
-
----
-
-## Features
-
-- **Multi-level location hierarchy** — Zone → Room → Shelf → Bin; filter chips for each level (multi-select)
-- **Items table** — photo thumbnail, name/category, qty, box, location + tags inline
-- **Tags** — preset (christmas, summer, halloween, diwali) + custom; per-tag color coding; filter by tag
-- **Bulk operations** — select items across bins; bulk add/remove tags; bulk move to another bin
-- **Inline item editing** — name, category, quantity, tags; edit without leaving the drawer
-- **Move items** — move one or many items to a different bin via a modal picker
-- **Bin editing** — edit zone, room, shelf, container description on any bin
-- **Photos** — per-item and per-bin photos; tap thumbnail to zoom; camera button to upload
-- **QR labels** — per-bin QR code links to a mobile-optimized scan view; print label button
-- **Search** — full-text across name, category, box ID, and tags
-- **Export** — download full inventory as CSV or XLSX
-- **Google Sheets sync** — n8n webhook pushes new items to a shared sheet; sheet→app sync via polling workflow
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688)](https://fastapi.tiangolo.com/)
 
 ---
 
-## Local development
+## Core Features
+
+| Feature | Description |
+|---|---|
+| **Location hierarchy** | Zone → Room → Shelf → Bin — multi-select filter chips for each level |
+| **Items table** | Photo thumbnail, name, category, qty, location, and tags in one view |
+| **Inline editing** | Edit any item's name, category, quantity, and tags without leaving the page |
+| **Move items** | Move one or many items to a different bin via a modal picker |
+| **Bulk operations** | Select across bins — bulk add/remove tags, bulk move |
+| **Tags** | Preset seasonal tags + custom tags; per-tag color coding; tag filter |
+| **Photos** | Per-item and per-bin photo upload; tap thumbnail to zoom |
+| **QR labels** | Auto-generated QR per bin — scan on mobile to see contents; print label |
+| **Search** | Full-text across name, category, box ID, and tags |
+| **Export** | Download full inventory as CSV or XLSX |
+| **Sheets sync** | Optional n8n webhook integration for Google Sheets bidirectional sync |
+
+---
+
+## Quick Start (local)
+
+**Requirements:** Python 3.11+, pip
 
 ```bash
+git clone https://github.com/nomi25home/garage-storage.git
+cd garage-storage
+
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+cp .env.example .env
+# Edit .env — set BASE_URL to http://localhost:8096 at minimum
+
 uvicorn app:app --reload --port 8096
-# open http://localhost:8096
 ```
 
-Data is stored in `/data/garage_inventory.db` and `/data/photos/`. For local dev these land in your working directory unless you override `DB_NAME` / `PHOTOS_DIR`.
+Open [http://localhost:8096](http://localhost:8096). The SQLite database and photo store are created automatically on first run at the paths defined in `.env`.
 
 ---
 
-## Deploy (homelab)
+## Docker (production)
 
-The app runs as a Docker container managed by Dockge on `192.168.74.45`.
+### Minimal `docker-compose.yml`
 
-**First deploy / after template changes** (templates are baked into the image):
+```yaml
+services:
+  kapaat:
+    image: ghcr.io/nomi25home/garage-storage:latest   # or build: .
+    restart: unless-stopped
+    ports:
+      - "8096:8096"
+    volumes:
+      - kapaat_data:/data
+    environment:
+      - BASE_URL=https://storage.yourdomain.com
+      - N8N_WEBHOOK_URL=                              # leave blank to disable
+      - TZ=America/New_York
 
-```bash
-# From your Mac — copy changed files then rebuild
-scp templates/index.html app.py root@192.168.74.45:/opt/stacks/garage-storage/
-ssh root@192.168.74.45 "cd /opt/stacks/garage-storage && docker compose build --no-cache && docker compose up -d"
+volumes:
+  kapaat_data:
 ```
 
-**Config-only changes** (docker-compose.yml env vars, ports, volumes):
+### Building from source
 
 ```bash
-ssh root@192.168.74.45 "cd /opt/stacks/garage-storage && docker compose up -d"
+docker build -t kapaat .
+docker run -d -p 8096:8096 \
+  -v kapaat_data:/data \
+  -e BASE_URL=http://192.168.1.10:8096 \
+  kapaat
 ```
-
-Persistent data lives in the `garage_data` Docker volume — it survives rebuilds and redeployments.
 
 ---
 
-## Environment
+## Configuration
 
-| Variable | Default | Purpose |
+All configuration is via environment variables. Copy `.env.example` to `.env` and fill in your values.
+
+| Variable | Default | Description |
 |---|---|---|
-| `TZ` | `America/New_York` | Timestamp timezone |
-| `PYTHONUNBUFFERED` | `1` | Flush logs immediately |
-
-`BASE_URL` and `N8N_WEBHOOK_URL` are hardcoded in `app.py` — update them if the domain or n8n host changes.
+| `BASE_URL` | `http://localhost:8096` | Public URL used to build QR code deep-links. Must be reachable from phones on your network. |
+| `N8N_WEBHOOK_URL` | *(empty — disabled)* | n8n webhook for Google Sheets sync. Leave blank to disable. |
+| `DB_PATH` | `/data/garage_inventory.db` | SQLite database path inside the container. |
+| `PHOTOS_DIR` | `/data/photos` | Photo storage directory inside the container. |
+| `APP_TITLE` | `Kapaat` | Browser tab title and API docs title. |
+| `TZ` | `America/New_York` | Timezone for timestamps. |
 
 ---
 
-## API endpoints
+## Data Portability & Migration FAQ
+
+**Where is my data stored?**  
+Everything lives in a single SQLite file (`garage_inventory.db`) and a flat photo directory (`photos/`). Both are inside the Docker volume mapped to `/data`.
+
+**How do I back up my data?**  
+```bash
+docker run --rm -v kapaat_data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/kapaat-backup-$(date +%F).tar.gz /data
+```
+
+**How do I move to a new host?**  
+Copy the backup archive to the new host, extract it into a Docker volume, and start the container pointing at that volume. No migrations needed — the app runs `ALTER TABLE` migrations on startup automatically.
+
+**Can I use a different database?**  
+Not currently — SQLite is intentional to keep the deployment footprint to a single file. Contributions adding a Postgres adapter are welcome.
+
+**How do I reset everything?**  
+Delete (or rename) the Docker volume: `docker volume rm kapaat_data`.
+
+---
+
+## Architecture
+
+```
+browser  ──HTTP──▶  FastAPI (app.py)
+                        │
+                   Jinja2 template (templates/index.html)
+                   Single-page, vanilla JS, no build step
+                        │
+              ┌─────────┴──────────┐
+         SQLite DB            /data/photos/
+       (garage_inventory.db)   (flat file store)
+                        │
+                  optional n8n webhook
+                  (Google Sheets sync)
+```
+
+- **Backend:** FastAPI + uvicorn; pure Python stdlib + SQLite for zero-dependency data layer.
+- **Frontend:** Single Jinja2 template rendered server-side on first load; all subsequent interactions are fetch-based JSON API calls. No JavaScript framework, no build step.
+- **Storage:** SQLite for structured data, flat files for photos. Both live in one Docker volume for trivial backup and portability.
+
+---
+
+## API Reference
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/` | Main dashboard |
-| `GET` | `/bin/{bin_id}` | Mobile QR scan view for a single bin |
+| `GET` | `/bin/{bin_id}` | Mobile QR scan view |
 | `GET` | `/api/bins` | All bins (JSON) |
 | `GET` | `/api/items?search=` | All items, optional full-text search |
 | `POST` | `/add-bin` | Register a new bin |
-| `PATCH` | `/update-bin/{bin_id}` | Edit bin zone/room/shelf/color |
-| `DELETE` | `/delete-bin/{bin_id}` | Delete empty bin |
+| `PATCH` | `/update-bin/{bin_id}` | Edit bin zone / room / shelf / container |
+| `DELETE` | `/delete-bin/{bin_id}` | Delete an empty bin |
 | `POST` | `/add-item` | Add item to a bin |
-| `PATCH` | `/update-item/{item_id}` | Edit item name/category/qty/tags |
+| `PATCH` | `/update-item/{item_id}` | Edit item fields |
 | `DELETE` | `/delete-item/{item_id}` | Delete item |
 | `POST` | `/api/move-items` | Move items to a different bin |
-| `POST` | `/api/bulk-tag` | Add or remove tags across multiple items |
+| `POST` | `/api/bulk-tag` | Add or remove tags across many items |
 | `GET` | `/api/tag-colors` | Get custom tag color mappings |
-| `POST` | `/api/tag-colors` | Set a tag's color |
-| `POST` | `/upload-photo/{type}/{id}` | Upload photo for item or bin |
+| `POST` | `/api/tag-colors` | Set a tag's hex color |
+| `POST` | `/upload-photo/{type}/{id}` | Upload photo (type: `item` or `bin`) |
 | `GET` | `/photos/{filename}` | Serve a stored photo |
 | `POST` | `/api/sync-row` | Ingest a row from Google Sheets (n8n) |
 | `GET` | `/export/{csv\|xlsx}` | Download full inventory |
 
 ---
 
-## Database schema
+## Database Schema
 
 ```sql
-bins   (bin_id PK, zone, room, shelf_number, color_code, bin_photo)
-items  (item_id PK, bin_id FK, name, category, quantity, tags, item_photo)
+bins       (bin_id PK, zone, room, shelf_number, color_code, bin_photo)
+items      (item_id PK, bin_id FK, name, category, quantity, tags, item_photo)
 tag_colors (tag_name PK, hex)
 ```
 
-`room` and `tags` were added via `ALTER TABLE` migrations — existing rows get empty strings.
+`room` and `tags` were added via `ALTER TABLE` migrations — the app handles these automatically on startup, so existing databases are safe to upgrade in-place.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md). Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before participating.
+
+## Security
+
+See [SECURITY.md](.github/SECURITY.md) for the responsible disclosure policy.
+
+## License
+
+[MIT](LICENSE) © 2025 nomi25home

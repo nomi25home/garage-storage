@@ -9,17 +9,16 @@ from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import pandas as pd
 
-app = FastAPI(title="nomi25home Storage")
+app = FastAPI(title=os.environ.get("APP_TITLE", "Kapaat"))
 templates = Jinja2Templates(directory="templates")
-DB_NAME = "/data/garage_inventory.db"
-PHOTOS_DIR = Path("/data/photos")
+DB_NAME = os.environ.get("DB_PATH", "/data/garage_inventory.db")
+PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR", "/data/photos"))
 
-# ⚠️ UPDATE to your local PC/server IP (e.g., http://192.168.74.45:8096)
-# so mobile phone cameras can resolve QR codes over your home Wi-Fi.
-BASE_URL = "https://bins.home.mihirfamily.com"
+# Public URL used to build QR code deep-links (must be reachable from phones on the same network).
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8096")
 
-# Target n8n Webhook Node URL
-N8N_WEBHOOK_URL = "https://n8n.home.mihirfamily.com/webhook/garage-update"
+# Optional: n8n webhook for Google Sheets sync. Leave blank to disable.
+N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
 
 
 def init_db():
@@ -96,6 +95,8 @@ def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int, item_
         "bin_url": bin_url,
         "qr_url": f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(bin_url, safe='')}",
     }
+    if not N8N_WEBHOOK_URL:
+        return
     try:
         response = requests.post(N8N_WEBHOOK_URL, json=payload, timeout=5, verify=False)
         print(f"n8n Sync Status: {response.status_code}")

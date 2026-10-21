@@ -1,0 +1,37 @@
+# Runtime data — never bake the live database or photos into the image
+/data
+*.db
+*.sqlite3
+
+# Python environments
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Editor & OS artifacts
+.DS_Store
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Secrets & local config
+.env
+*.env.local
+
+# Dev / CI artifacts
+.pytest_cache
+.mypy_cache
+htmlcov
+.coverage
+dist
+build
+*.egg-info
