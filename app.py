@@ -286,6 +286,25 @@ async def web_add_item(
     return JSONResponse({"ok": True, "item_id": item_id})
 
 
+@app.patch("/update-bin/{bin_id}")
+async def update_bin(bin_id: str, request: Request):
+    data = await request.json()
+    zone = str(data.get("zone", "")).strip()
+    room = str(data.get("room", "")).strip()
+    shelf = str(data.get("shelf", "")).strip()
+    color = str(data.get("color", "")).strip()
+    if not zone or not shelf or not color:
+        return JSONResponse({"error": "zone, shelf, and color are required"}, status_code=400)
+    conn = get_db()
+    conn.execute(
+        "UPDATE bins SET zone=?, room=?, shelf_number=?, color_code=? WHERE bin_id=?",
+        (zone, room, shelf, color, bin_id),
+    )
+    conn.commit()
+    conn.close()
+    return JSONResponse({"ok": True})
+
+
 @app.delete("/delete-bin/{bin_id}")
 async def delete_bin(bin_id: str):
     conn = get_db()

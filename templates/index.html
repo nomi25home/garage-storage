@@ -357,7 +357,7 @@ function render() {
   const paletteBtn = allTags.length
     ? ` <button class="icon-btn" title="Customize tag colors" onclick="openTagColors()" style="height:20px;padding:0 3px"><span class="ms" style="font-size:15px;color:var(--outline)">palette</span></button>`
     : '';
-  $("filters").innerHTML = zoneChips + binChips + tagChipsHtml + paletteBtn;
+  $("filters").innerHTML = zoneChips + roomChips + binChips + tagChipsHtml + paletteBtn;
 
   const list = ITEMS.filter(i => {
     const bin = BINS.find(b => b.bin_id === i.bin_id);
@@ -414,6 +414,7 @@ function renderDrawer() {
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h3><span class="ms" style="color:var(--primary)">inventory_2</span>${esc(bin.bin_id)}</h3>
         <div style="display:flex;gap:2px">
+          <button class="icon-btn" title="Edit box" onclick="openBinEdit('${esc(bin.bin_id)}')"><span class="ms">edit</span></button>
           <button class="icon-btn" title="Delete box" onclick="deleteBin('${esc(bin.bin_id)}')"><span class="ms" style="color:var(--error)">delete_forever</span></button>
           <button class="icon-btn" onclick="closeDrawer()"><span class="ms">close</span></button>
         </div>
@@ -714,6 +715,48 @@ async function saveAddItem() {
     await load();
     select(bin_id);
   } catch (e) { $("iErr").textContent = e.message; $("iSave").disabled = false; }
+}
+
+function openBinEdit(binId) {
+  const bin = BINS.find(b => b.bin_id === binId);
+  if (!bin) return;
+  const zoneOpts = [...new Set(BINS.map(b => b.zone))].map(z => `<option value="${esc(z)}">`).join('');
+  const roomOpts = [...new Set(BINS.map(b => b.room).filter(Boolean))].map(r => `<option value="${esc(r)}">`).join('');
+  modal(`
+    <div class="mh"><div><h2>Edit Box</h2><p>${esc(bin.bin_id)}</p></div>
+      <button class="icon-btn" onclick="closeModal()"><span class="ms">close</span></button></div>
+    <div class="mb">
+      <div class="row2">
+        <div><label class="f">Zone *</label><input class="in" id="ebZone" value="${esc(bin.zone)}" list="ebZoneList"></div>
+        <div><label class="f">Room</label><input class="in" id="ebRoom" value="${esc(bin.room||'')}" list="ebRoomList"></div>
+      </div>
+      <div><label class="f">Shelf *</label><input class="in" id="ebShelf" value="${esc(bin.shelf_number)}"></div>
+      <div><label class="f">Container Description *</label><input class="in" id="ebColor" value="${esc(bin.color_code)}"></div>
+      <datalist id="ebZoneList">${zoneOpts}</datalist>
+      <datalist id="ebRoomList">${roomOpts}</datalist>
+      <div class="err" id="ebErr"></div>
+    </div>
+    <div class="mf">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="ebSave" onclick="saveBinEdit('${esc(bin.bin_id)}')"><span class="ms">done</span>Save</button>
+    </div>`);
+}
+
+async function saveBinEdit(binId) {
+  const zone = $("ebZone").value.trim(), room = $("ebRoom").value.trim(), shelf = $("ebShelf").value.trim(), color = $("ebColor").value.trim();
+  if (!zone || !shelf || !color) { $("ebErr").textContent = "Zone, Shelf, and Container are required"; return; }
+  $("ebSave").disabled = true;
+  try {
+    await api(`/update-bin/${encodeURIComponent(binId)}`, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({zone, room, shelf, color}),
+    });
+    closeModal();
+    toast(`Box ${binId} updated`);
+    await load();
+    select(binId);
+  } catch(e) { $("ebErr").textContent = e.message; $("ebSave").disabled = false; }
 }
 
 async function deleteBin(binId) {
