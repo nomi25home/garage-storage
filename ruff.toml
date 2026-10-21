@@ -1,9 +1,0 @@
-line-length = 120
-
-[lint]
-select = ["E", "F", "I", "B", "RUF"]
-ignore = [
-    "BLE001",  # broad except is intentional in fire-and-forget webhook / backup handlers
-    "B008",    # FastAPI uses File(...) / Form(...) in default args by design
-    "RUF005",  # list concat is fine here
-]
