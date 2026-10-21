@@ -54,7 +54,7 @@ Open [http://localhost:8096](http://localhost:8096). The SQLite database and pho
 ```yaml
 services:
   kapaat:
-    image: ghcr.io/nomi25home/kapaat:latest   # or build: .
+    image: ghcr.io/nomi25home/kapaat:1   # or build: .
     restart: unless-stopped
     ports:
       - "8096:8096"
