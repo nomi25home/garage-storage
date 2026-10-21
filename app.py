@@ -2,26 +2,28 @@ import io
 import json
 import os
 import re
-import shutil
 import sqlite3
 import time
 import urllib.parse
 import zipfile
 from datetime import datetime
 from pathlib import Path
+
+import pandas as pd
 import requests
+from authlib.integrations.starlette_client import OAuth
 from fastapi import (
+    BackgroundTasks,
     FastAPI,
+    File,
+    Form,
     HTTPException,
     Request,
-    Form,
-    BackgroundTasks,
     UploadFile,
-    File,
 )
 from fastapi.responses import (
-    HTMLResponse,
     FileResponse,
+    HTMLResponse,
     JSONResponse,
     RedirectResponse,
     StreamingResponse,
@@ -29,8 +31,6 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from authlib.integrations.starlette_client import OAuth
-import pandas as pd
 
 app = FastAPI(title=os.environ.get("APP_TITLE", "Kapaat"))
 
@@ -74,13 +74,11 @@ PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR", "/data/photos"))
 
 # Optional AES-256 encryption via SQLCipher. Set DB_ENCRYPTION_KEY in .env to enable.
 # WARNING: if you lose the key, you lose access to your data.
-DB_ENCRYPTION_KEY = re.sub(
-    r"['\";]", "", os.environ.get("DB_ENCRYPTION_KEY", "").strip()
-)
+DB_ENCRYPTION_KEY = re.sub(r"['\";]", "", os.environ.get("DB_ENCRYPTION_KEY", "").strip())
 
 if DB_ENCRYPTION_KEY:
     try:
-        from pysqlcipher3 import dbapi2 as sqlite3  # noqa: F811
+        from pysqlcipher3 import dbapi2 as sqlite3
     except ImportError:
         print(
             "WARNING: DB_ENCRYPTION_KEY is set but pysqlcipher3 is not installed. Falling back to unencrypted SQLite."
@@ -176,9 +174,7 @@ def init_db():
     """)
     conn.commit()
 
-    applied = {
-        r[0] for r in conn.execute("SELECT version FROM _schema_version").fetchall()
-    }
+    applied = {r[0] for r in conn.execute("SELECT version FROM _schema_version").fetchall()}
 
     # Migration 1: rebuild items table with ON DELETE CASCADE.
     # SQLite cannot ALTER FK constraints, so rename → recreate → copy → drop.
@@ -217,9 +213,7 @@ def sanitize_filename(name: str) -> str:
     return name or "file"
 
 
-def trigger_n8n_sync(
-    bin_id: str, name: str, category: str, quantity: int, item_id: int = None
-):
+def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int, item_id: int | None = None):
     """Sends background webhook notification to n8n for Google Sheets sync."""
     conn = get_db()
     cursor = conn.cursor()
@@ -237,7 +231,9 @@ def trigger_n8n_sync(
         "zone": bin_info["zone"] if bin_info else "Unknown",
         "shelf": bin_info["shelf_number"] if bin_info else "Unknown",
         "bin_url": bin_url,
-        "qr_url": f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(bin_url, safe='')}",
+        "qr_url": (
+            f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={urllib.parse.quote(bin_url, safe='')}"
+        ),
     }
     if not N8N_WEBHOOK_URL:
         return
@@ -258,9 +254,7 @@ async def bulk_tag(request: Request):
     mode = data.get("mode", "add")
     conn = get_db()
     for item_id in item_ids:
-        row = conn.execute(
-            "SELECT tags FROM items WHERE item_id=?", (item_id,)
-        ).fetchone()
+        row = conn.execute("SELECT tags FROM items WHERE item_id=?", (item_id,)).fetchone()
         if not row:
             continue
         existing = [t.strip() for t in (row["tags"] or "").split(",") if t.strip()]
@@ -268,9 +262,7 @@ async def bulk_tag(request: Request):
             merged = [t for t in existing if t not in tags]
         else:
             merged = list(dict.fromkeys(existing + tags))
-        conn.execute(
-            "UPDATE items SET tags=? WHERE item_id=?", (",".join(merged), item_id)
-        )
+        conn.execute("UPDATE items SET tags=? WHERE item_id=?", (",".join(merged), item_id))
     conn.commit()
     conn.close()
     return JSONResponse({"ok": True, "updated": len(item_ids)})
@@ -454,9 +446,7 @@ async def web_add_bin(
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
-        return JSONResponse(
-            {"error": f"Box ID '{bin_id}' already exists"}, status_code=400
-        )
+        return JSONResponse({"error": f"Box ID '{bin_id}' already exists"}, status_code=400)
     finally:
         conn.close()
     return JSONResponse({"ok": True, "bin_id": bin_id})
@@ -495,7 +485,7 @@ async def move_items(request: Request):
         conn.close()
         return JSONResponse({"error": f"Bin '{target_bin}' not found"}, status_code=404)
     conn.execute(
-        f"UPDATE items SET bin_id=? WHERE item_id IN ({','.join('?'*len(item_ids))})",
+        f"UPDATE items SET bin_id=? WHERE item_id IN ({','.join('?' * len(item_ids))})",
         [target_bin] + item_ids,
     )
     conn.commit()
@@ -511,9 +501,7 @@ async def update_bin(bin_id: str, request: Request):
     shelf = str(data.get("shelf", "")).strip()
     color = str(data.get("color", "")).strip()
     if not zone or not shelf or not color:
-        return JSONResponse(
-            {"error": "zone, shelf, and color are required"}, status_code=400
-        )
+        return JSONResponse({"error": "zone, shelf, and color are required"}, status_code=400)
     conn = get_db()
     conn.execute(
         "UPDATE bins SET zone=?, room=?, shelf_number=?, color_code=? WHERE bin_id=?",
@@ -556,9 +544,7 @@ async def update_item(item_id: int, request: Request):
         quantity = int(data.get("quantity", 1))
     except (ValueError, TypeError):
         quantity = 1
-    tags = ",".join(
-        t.strip().lower() for t in str(data.get("tags", "")).split(",") if t.strip()
-    )
+    tags = ",".join(t.strip().lower() for t in str(data.get("tags", "")).split(",") if t.strip())
     if not name or not category:
         return JSONResponse({"error": "name and category required"}, status_code=400)
     conn = get_db()
@@ -590,9 +576,7 @@ async def delete_item(item_id: int):
 @app.post("/upload-photo/{photo_type}/{record_id}")
 async def upload_photo(photo_type: str, record_id: str, file: UploadFile = File(...)):
     if photo_type not in {"item", "bin"}:
-        raise HTTPException(
-            status_code=400, detail="Invalid upload type; must be 'item' or 'bin'"
-        )
+        raise HTTPException(status_code=400, detail="Invalid upload type; must be 'item' or 'bin'")
     safe_name = sanitize_filename(file.filename or "")
     ext = Path(safe_name).suffix.lower()
     if ext not in {".jpg", ".jpeg", ".png", ".webp", ".heic"}:
@@ -610,9 +594,7 @@ async def upload_photo(photo_type: str, record_id: str, file: UploadFile = File(
             p = PHOTOS_DIR / old["item_photo"]
             if p.exists():
                 p.unlink()
-        conn.execute(
-            "UPDATE items SET item_photo = ? WHERE item_id = ?", (filename, record_id)
-        )
+        conn.execute("UPDATE items SET item_photo = ? WHERE item_id = ?", (filename, record_id))
     else:
         cursor.execute("SELECT bin_photo FROM bins WHERE bin_id = ?", (record_id,))
         old = cursor.fetchone()
@@ -620,9 +602,7 @@ async def upload_photo(photo_type: str, record_id: str, file: UploadFile = File(
             p = PHOTOS_DIR / old["bin_photo"]
             if p.exists():
                 p.unlink()
-        conn.execute(
-            "UPDATE bins SET bin_photo = ? WHERE bin_id = ?", (filename, record_id)
-        )
+        conn.execute("UPDATE bins SET bin_photo = ? WHERE bin_id = ?", (filename, record_id))
     conn.commit()
     conn.close()
     return JSONResponse({"ok": True, "filename": filename})
@@ -651,9 +631,7 @@ async def sync_row_from_sheet(request: Request):
     shelf = str(data.get("shelf", "")).strip() or "Unknown"
 
     if not bin_id or not name or not category:
-        return JSONResponse(
-            {"error": "bin_id, name, and category are required"}, status_code=400
-        )
+        return JSONResponse({"error": "bin_id, name, and category are required"}, status_code=400)
 
     conn = get_db()
     cursor = conn.cursor()
@@ -719,7 +697,7 @@ async def download_full_backup():
                         arcname = str(file_path.relative_to(PHOTOS_DIR.parent))
                         zf.write(str(file_path), arcname)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Backup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Backup failed: {e}") from e
     zip_buffer.seek(0)
     filename = f"kapaat_backup_{datetime.now().strftime('%Y-%m-%d_%H%M')}.zip"
     return StreamingResponse(
