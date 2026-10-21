@@ -7,6 +7,7 @@ requests==2.31.0
 python-multipart==0.0.9
 aiofiles==23.2.1
 authlib>=1.3.0
+httpx>=0.27.0
 itsdangerous>=2.1.2
 # pysqlcipher3 is optional — only needed when DB_ENCRYPTION_KEY is set.
 # Install manually alongside libsqlcipher-dev, or use the ENABLE_SQLCIPHER
