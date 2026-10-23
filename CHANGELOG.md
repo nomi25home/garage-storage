@@ -10,6 +10,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ---
 
+## [1.2.1] — 2026-10-22
+
+### Fixed
+- `/api/sync-row` now honors an incoming `item_id`: if the item already exists it is skipped instead of inserting a duplicate row (`sync-row-skip-existing` audit entry).
+- Dashboard banner now shows unresolved sync conflicts from `/api/sync-conflicts`, with per-conflict "Mark resolved" buttons.
+- Backup retention is now enforced on every backup download, not only on manual `/api/backup/retention` trigger.
+- Audit rows are no longer silently dropped: `log_audit()` commits its own row, and `bulk_tag` audit calls survive rollback.
+- `PATCH /update-item/{id}` now rejects a missing or invalid `version` field (400) instead of silently succeeding — the optimistic lock is no longer vacuous.
+
+### Added
+- `audit_log` and `sync_conflicts` tables (migration v3).
+- `version` column on `items` for optimistic locking (migration v2).
+- Migration registry (`_migrate_v1`/`v2`/`v3`) — no raw `ALTER TABLE` outside the registry.
+- `/api/backup/retention` and `/api/sync-conflicts` endpoints.
+
 ## [0.1.0] — 2025-10-20
 
 ### Added
@@ -31,5 +46,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 - Environment-variable configuration (`BASE_URL`, `N8N_WEBHOOK_URL`, `DB_PATH`, `PHOTOS_DIR`, `APP_TITLE`)
 - MIT License, `.env.example`, `.dockerignore`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`
 
-[Unreleased]: https://github.com/nomi25home/garage-storage/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/nomi25home/garage-storage/releases/tag/v0.1.0
+[Unreleased]: https://github.com/nomi25home/kapaat/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/nomi25home/kapaat/compare/v1.2.0...v1.2.1
+[0.1.0]: https://github.com/nomi25home/kapaat/releases/tag/v0.1.0
