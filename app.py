@@ -32,6 +32,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
+# Per-IP auth attempt tracking for backoff algorithm (v1.2.2)
+_attempts: dict[str, dict] = {}  # ip → {"count": int, "first_ts": float, "last_ts": float}
+
 app = FastAPI(title=os.environ.get("APP_TITLE", "Kapaat"))
 
 AUTH_SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "change-me-in-production")
@@ -76,6 +79,12 @@ PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR", "/data/photos"))
 # Optional AES-256 encryption via SQLCipher. Set DB_ENCRYPTION_KEY in .env to enable.
 # WARNING: if you lose the key, you lose access to your data.
 DB_ENCRYPTION_KEY = re.sub(r"['\";]", "", os.environ.get("DB_ENCRYPTION_KEY", "").strip())
+# Multi-user access control env vars (v1.2.2)
+ALLOWED_EMAILS = os.environ.get("ALLOWED_EMAILS", "").strip()
+BLOCKED_EMAILS = os.environ.get("BLOCKED_EMAILS", "").strip()
+ADMIN_GROUP = os.environ.get("ADMIN_GROUP", "admins")
+N8N_WEBHOOK_SECRET = os.environ.get("N8N_WEBHOOK_SECRET", "").strip()
+SERVICE_USER_SUB = os.environ.get("SERVICE_USER_SUB", "service-user")
 
 if DB_ENCRYPTION_KEY:
     try:
@@ -122,6 +131,22 @@ def get_actor(request: Request | None = None) -> str:
     if not user:
         return "anonymous"
     return user.get("name") or user.get("email") or user.get("sub") or "anonymous"
+
+
+def require_admin(request: Request) -> None:
+    """Deny non-admins from mutating routes.
+
+    The email gate already ran at login, so this only checks the admin
+    flag. Authentik group membership is revocable — change the group
+    membership and the next login takes effect immediately.
+
+    If ADMIN_GROUP is unconfigured (empty), the check is skipped so the
+    app remains usable in single-user mode.
+    """
+    if not ADMIN_GROUP:
+        return
+    if not request.session.get("is_admin"):
+        raise HTTPException(status_code=403, detail="admin required")
 
 
 def log_audit(
@@ -326,6 +351,7 @@ def trigger_n8n_sync(bin_id: str, name: str, category: str, quantity: int, item_
 
 @app.post("/api/bulk-tag")
 async def bulk_tag(request: Request):
+    require_admin(request)
     data = await request.json()
     item_ids = [int(i) for i in data.get("item_ids", []) if str(i).isdigit()]
     tags = [t.strip().lower() for t in data.get("tags", []) if t.strip()]
@@ -368,6 +394,7 @@ async def get_tag_colors():
 
 @app.post("/api/tag-colors")
 async def set_tag_color(request: Request):
+    require_admin(request)
     data = await request.json()
     tag = str(data.get("tag", "")).strip().lower()
     hex_val = str(data.get("hex", "")).strip()
@@ -433,6 +460,8 @@ async def login(request: Request):
 
 @app.get("/auth/callback", name="auth_callback")
 async def auth_callback(request: Request):
+    import time as _time
+
     token = await oauth.authentik.authorize_access_token(request)
     user = token.get("userinfo") or await oauth.authentik.userinfo(token=token)
     user_dict = dict(user)
@@ -447,7 +476,50 @@ async def auth_callback(request: Request):
         "name": user_dict.get("name") or user_dict.get("preferred_username") or user_dict.get("username", ""),
         "groups": groups,
     }
-    return RedirectResponse("/")
+
+    # ---- Email gate (v1.2.2) ----
+    email = request.session["user"]["email"].strip().lower()
+    allowed = [e.strip().lower() for e in os.environ.get("ALLOWED_EMAILS", "").split(",") if e.strip()]
+    blocked = [e.strip().lower() for e in os.environ.get("BLOCKED_EMAILS", "").split(",") if e.strip()]
+
+    # Track per-IP attempt count for backoff
+    ip = request.client.host
+    now = _time.time()
+    attempts = _attempts.get(ip, {"count": 0, "first_ts": now, "last_ts": now})
+    attempts["count"] += 1
+    attempts["last_ts"] = now
+    _attempts[ip] = attempts
+
+    # Delay before responding (denies timing side-channel)
+    if attempts["count"] >= 5:
+        delay = 60
+    elif attempts["count"] >= 4:
+        delay = 30
+    elif attempts["count"] >= 3:
+        delay = 15
+    elif attempts["count"] >= 2:
+        delay = 5
+    else:
+        delay = 0
+    _time.sleep(delay)
+
+    if allowed and email not in allowed:
+        # Whitelist active and email doesn't match → deny
+        request.session.clear()
+        return JSONResponse({"error": "email not in allowed list"}, status_code=403)
+
+    if not allowed and email in blocked:
+        # Whitelist off, but blacklist on → deny
+        request.session.clear()
+        return JSONResponse({"error": "email on blocked list"}, status_code=403)
+
+    # Email passes — now check admin group, but only if ADMIN_GROUP is configured.
+    # If ADMIN_GROUP is empty/unconfigured, skip the admin check (backward-compatible).
+    is_admin = bool(ADMIN_GROUP) and (ADMIN_GROUP in groups)
+
+    # ---- End email gate ----
+
+    request.session["is_admin"] = is_admin
 
 
 @app.get("/logout")
@@ -539,6 +611,7 @@ async def web_add_bin(
     shelf: str = Form(...),
     color: str = Form(...),
 ):
+    require_admin(request)
     conn = get_db()
     try:
         conn.execute(
@@ -580,6 +653,7 @@ async def web_add_item(
 
 @app.post("/api/move-items")
 async def move_items(request: Request):
+    require_admin(request)
     data = await request.json()
     item_ids = [int(i) for i in data.get("item_ids", []) if str(i).isdigit()]
     target_bin = str(data.get("bin_id", "")).strip()
@@ -609,6 +683,7 @@ async def move_items(request: Request):
 
 @app.patch("/update-bin/{bin_id}")
 async def update_bin(bin_id: str, request: Request):
+    require_admin(request)
     data = await request.json()
     zone = str(data.get("zone", "")).strip()
     room = str(data.get("room", "")).strip()
@@ -629,6 +704,7 @@ async def update_bin(bin_id: str, request: Request):
 
 @app.delete("/delete-bin/{bin_id}")
 async def delete_bin(bin_id: str, request: Request):
+    require_admin(request)
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) as c FROM items WHERE bin_id = ?", (bin_id,))
@@ -653,6 +729,7 @@ async def delete_bin(bin_id: str, request: Request):
 
 @app.patch("/update-item/{item_id}")
 async def update_item(item_id: int, request: Request):
+    require_admin(request)
     data = await request.json()
     name = str(data.get("name", "")).strip()
     category = str(data.get("category", "")).strip()
@@ -711,6 +788,7 @@ async def update_item(item_id: int, request: Request):
 
 @app.delete("/delete-item/{item_id}")
 async def delete_item(item_id: int, request: Request):
+    require_admin(request)
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT item_photo FROM items WHERE item_id = ?", (item_id,))
@@ -727,7 +805,8 @@ async def delete_item(item_id: int, request: Request):
 
 
 @app.post("/upload-photo/{photo_type}/{record_id}")
-async def upload_photo(photo_type: str, record_id: str, file: UploadFile = File(...)):
+async def upload_photo(request: Request, photo_type: str, record_id: str, file: UploadFile = File(...)):
+    require_admin(request)
     if photo_type not in {"item", "bin"}:
         raise HTTPException(status_code=400, detail="Invalid upload type; must be 'item' or 'bin'")
     safe_name = sanitize_filename(file.filename or "")
@@ -771,8 +850,21 @@ async def serve_photo(filename: str):
 
 @app.post("/api/sync-row")
 async def sync_row_from_sheet(request: Request):
-    """Called by n8n to create items sourced from Google Sheets (no webhook fired to avoid loop)."""
+    """Called by n8n to create items sourced from Google Sheets (no webhook fired to avoid loop).
+
+    Auth: N8N_WEBHOOK_SECRET query parameter. Acts as SERVICE_USER_SUB.
+    Payload: bin_id, name, category, quantity, zone, shelf, item_id, mode ("create"|"update")
+    """
+    # --- Webhook secret check (v1.2.2) ---
+    secret = request.query_params.get("N8N_WEBHOOK_SECRET", "").strip()
+    if not N8N_WEBHOOK_SECRET or secret != N8N_WEBHOOK_SECRET:
+        raise HTTPException(status_code=403, detail="invalid webhook secret")
+
+    # Service user identity (bypasses email gate)
+    actor = SERVICE_USER_SUB
+
     data = await request.json()
+    mode = data.get("mode", "create")  # "create" or "update"
     bin_id = str(data.get("bin_id", "")).strip()
     name = str(data.get("name", "")).strip()
     category = str(data.get("category", "")).strip()
@@ -782,7 +874,7 @@ async def sync_row_from_sheet(request: Request):
         quantity = 1
     zone = str(data.get("zone", "")).strip() or "Unknown"
     shelf = str(data.get("shelf", "")).strip() or "Unknown"
-    item_id = data.get("item_id")  # NEW: inspect incoming item_id
+    item_id = data.get("item_id")
 
     if not bin_id or not name or not category:
         return JSONResponse({"error": "bin_id, name, and category are required"}, status_code=400)
@@ -797,7 +889,68 @@ async def sync_row_from_sheet(request: Request):
         )
         conn.commit()
 
-    # NEW: honor incoming item_id — skip if item already exists
+    # --- Update path (v1.2.2) ---
+    if mode == "update":
+        if item_id is None:
+            return JSONResponse({"error": "item_id required for mode=update"}, status_code=400)
+        try:
+            item_id_int = int(item_id)
+        except (ValueError, TypeError):
+            return JSONResponse({"error": "invalid item_id"}, status_code=400)
+
+        # Verify item exists
+        existing = cursor.execute("SELECT item_id FROM items WHERE item_id = ?", (item_id_int,)).fetchone()
+        if not existing:
+            return JSONResponse({"error": "item not found"}, status_code=404)
+
+        # Optimistic locking if version provided
+        incoming_version = data.get("version")
+        if incoming_version is not None:
+            try:
+                incoming_version = int(incoming_version)
+            except (ValueError, TypeError):
+                return JSONResponse({"error": "invalid version"}, status_code=400)
+
+            cursor = conn.execute(
+                "UPDATE items SET name=?, category=?, quantity=?, tags=?, version=version+1 WHERE item_id=? AND version=?",
+                (name, category, quantity, data.get("tags", ""), item_id_int, incoming_version),
+            )
+            conn.commit()
+            if cursor.rowcount == 0:
+                conn.close()
+                return JSONResponse(
+                    {"error": "stale version — another user edited this item"},
+                    status_code=409,
+                )
+        else:
+            conn.execute(
+                "UPDATE items SET name=?, category=?, quantity=?, tags=? WHERE item_id=?",
+                (name, category, quantity, data.get("tags", ""), item_id_int),
+            )
+            conn.commit()
+
+        # Conflict detection — if sheet row differs from app row, log to sync_conflicts
+        existing = cursor.execute("SELECT quantity, category FROM items WHERE item_id = ?", (item_id_int,)).fetchone()
+        if existing and existing != (quantity, category):
+            conn.execute(
+                """INSERT INTO sync_conflicts (item_id, bin_id, name, category, quantity, source, resolved)
+                   VALUES (?, ?, ?, ?, ?, 'sheets', 0)""",
+                (item_id_int, bin_id, name, category, quantity),
+            )
+            conn.commit()
+
+        # Audit
+        conn.execute(
+            """INSERT INTO audit_log (actor, action, item_id, details, timestamp)
+               VALUES (?, ?, ?, ?, ?)""",
+            (actor, "sync-row-update", item_id_int, f"bin_id={bin_id}, name={name}", datetime.now().isoformat()),
+        )
+        conn.commit()
+        conn.close()
+        print(f"Sheet→App sync: '{name}' x{quantity} → {bin_id} (item_id={item_id_int}, UPDATED)")
+        return JSONResponse({"ok": True, "item_id": item_id_int, "updated": True})
+
+    # --- Create path (existing, with append-only idempotency) ---
     if item_id is not None:
         try:
             item_id_int = int(item_id)
@@ -814,7 +967,7 @@ async def sync_row_from_sheet(request: Request):
                 """INSERT INTO audit_log (actor, action, item_id, details, timestamp)
                    VALUES (?, ?, ?, ?, ?)""",
                 (
-                    "sheets",
+                    actor,
                     "sync-row-skip-existing",
                     item_id_int,
                     f"bin_id={bin_id}, name={name}",
@@ -825,7 +978,6 @@ async def sync_row_from_sheet(request: Request):
             conn.close()
             print(f"Sheet→App sync: '{name}' x{quantity} → {bin_id} (item_id={item_id_int}, SKIPPED — already exists)")
             return JSONResponse({"ok": True, "item_id": item_id_int, "skipped": True})
-    # End NEW block
 
     cursor.execute(
         "INSERT INTO items (bin_id, name, category, quantity) VALUES (?, ?, ?, ?)",
@@ -834,12 +986,12 @@ async def sync_row_from_sheet(request: Request):
     new_item_id = cursor.lastrowid
     conn.commit()
 
-    # NEW: always log sync to audit_log
+    # Always log sync to audit_log
     conn.execute(
         """INSERT INTO audit_log (actor, action, item_id, details, timestamp)
            VALUES (?, ?, ?, ?, ?)""",
         (
-            "sheets",
+            actor,
             "sync-row-create",
             new_item_id,
             f"bin_id={bin_id}, name={name}, quantity={quantity}",
@@ -938,6 +1090,7 @@ async def backup_retention():
 
 @app.post("/api/backup/retention")
 async def backup_retention_post(request: Request):
+    require_admin(request)
     """Manual trigger for backup pruning."""
     return await backup_retention()
 
@@ -958,6 +1111,7 @@ async def sync_conflicts(request: Request):
 
 @app.post("/api/sync-conflicts/{conflict_id}/resolve")
 async def resolve_sync_conflict(conflict_id: int, request: Request):
+    require_admin(request)
     """Mark a sync conflict as resolved."""
     conn = get_db()
     cursor = conn.cursor()
