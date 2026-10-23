@@ -912,7 +912,8 @@ async def sync_row_from_sheet(request: Request):
                 return JSONResponse({"error": "invalid version"}, status_code=400)
 
             cursor = conn.execute(
-                "UPDATE items SET name=?, category=?, quantity=?, tags=?, version=version+1 WHERE item_id=? AND version=?",
+                "UPDATE items SET name=?, category=?, quantity=?, tags=?, "
+                "version=version+1 WHERE item_id=? AND version=?",
                 (name, category, quantity, data.get("tags", ""), item_id_int, incoming_version),
             )
             conn.commit()

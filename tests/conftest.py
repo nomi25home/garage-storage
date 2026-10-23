@@ -9,9 +9,8 @@ import json
 import os
 import tempfile
 from base64 import b64encode
-from pathlib import Path
 
-import pytest
+# import pytest  # unused in fixtures
 
 # Must happen BEFORE app is imported: app.py reads these env vars at module load.
 _TMP = tempfile.mkdtemp(prefix="kapaat-test-")
@@ -64,9 +63,10 @@ def admin_client():
     session_transaction (that's Flask/Django), so we build a signed
     session cookie using the same serializer Starlette's SessionMiddleware uses.
     """
-    import app as app_module
     from fastapi.testclient import TestClient
     from itsdangerous import TimestampSigner
+
+    import app as app_module
 
     with TestClient(app_module.app) as c:
         # Starlette's SessionMiddleware signs with itsdangerous.TimestampSigner
