@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kapaat">
+<meta name="csrf-token" content="{{ inject_csrf_token(request).csrf_token }}">
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -316,7 +317,14 @@ function toast(msg, bad) {
   setTimeout(() => t.remove(), bad ? 8000 : 4000);
 }
 
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+
 async function api(path, opts = {}) {
+  // Attach the CSRF token on state-changing requests so the server can
+  // distinguish a legit form submit from a cross-site POST.
+  if (opts.method && opts.method.toUpperCase() !== "GET") {
+    opts.headers = Object.assign({ "X-CSRF-Token": CSRF_TOKEN }, opts.headers);
+  }
   const r = await fetch(path, opts);
   let body = null;
   try { body = await r.json(); } catch {}

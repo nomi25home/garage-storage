@@ -81,9 +81,12 @@ def admin_client():
                 "groups": ["admins"],
             },
             "is_admin": True,
+            "csrf_token": "test-csrf-token",
         }
         cookie_val = signer.sign(b64encode(json.dumps(session_data).encode("utf-8"))).decode("utf-8")
         c.cookies.set("session", cookie_val)
+        # Also set the CSRF token header for state-changing requests
+        c.headers["X-CSRF-Token"] = "test-csrf-token"
         yield c
 
 

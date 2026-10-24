@@ -150,6 +150,7 @@ def test_non_admin_denied_on_mutating_route(client, admin_client):
                         "groups": ["users"],
                     },
                     "is_admin": False,
+                    "csrf_token": "test-csrf-token",
                 }
             ).encode("utf-8")
         )
@@ -157,6 +158,7 @@ def test_non_admin_denied_on_mutating_route(client, admin_client):
 
     with TestClient(app_module.app) as c:
         c.cookies.set("session", cookie)
+        c.headers["X-CSRF-Token"] = "test-csrf-token"
         # Mutating routes must 403 for a non-admin.
         for method, path in [
             ("patch", "/update-item/1"),

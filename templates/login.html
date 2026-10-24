@@ -76,6 +76,7 @@ header { position: sticky; top: 0; z-index: 30; height: 48px; display: flex; ali
     <p class="muted mono" style="font-size:12px;margin-bottom:16px">Sent to <strong>{{ email }}</strong></p>
     <form action='/login-mfa/verify' method='post'>
       <input type='hidden' name='email' value='{{ email }}'>
+      <input type='hidden' name='csrf_token' value='{{ csrf_token }}'>
       <div class="form-group">
         <label class="label">OTP</label>
         <input class="in" type='text' name='otp' required autocomplete="one-time-code" style="letter-spacing:4px;text-align:center">

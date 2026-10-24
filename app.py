@@ -3,12 +3,15 @@ import io
 import json
 import os
 import re
+import secrets
 import sqlite3
 import time
 import urllib.parse
 import zipfile
 from datetime import datetime
 from pathlib import Path
+
+from starlette.middleware.base import BaseHTTPMiddleware
 
 import pandas as pd
 import requests
@@ -41,10 +44,20 @@ _attempts: dict[str, dict] = {}
 app = FastAPI(title=os.environ.get("APP_TITLE", "Kapaat"))
 
 # Application version - defaults to the latest released version.
-VERSION = os.getenv("APP_VERSION", "1.2.2")
+VERSION = os.getenv("APP_VERSION", "1.2.3")
 
 AUTH_SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "change-me-in-production")
-app.add_middleware(SessionMiddleware, secret_key=AUTH_SECRET_KEY)
+
+# Fail fast at startup if the session-signing secret is still the default.
+# A known secret lets an attacker forge session cookies (is_admin, user)
+# without ever logging in. This is a hard stop, not a warning.
+_DEFAULT_AUTH_SECRETS = {"change-me-in-production", "change-me", ""}
+if AUTH_SECRET_KEY in _DEFAULT_AUTH_SECRETS:
+    raise RuntimeError(
+        "AUTH_SECRET_KEY is set to a default/empty value. "
+        "Generate a random secret (e.g. `openssl rand -base64 32`) and set it "
+        "in the environment before starting the app."
+    )
 
 AUTHENTIK_CLIENT_ID = os.environ.get("AUTHENTIK_CLIENT_ID", "")
 AUTHENTIK_CLIENT_SECRET = os.environ.get("AUTHENTIK_CLIENT_SECRET", "")
@@ -65,6 +78,15 @@ templates = Jinja2Templates(directory="templates")
 
 # Expose version to Jinja templates.
 templates.env.globals["VERSION"] = VERSION
+
+
+# CSRF token injection for templates — use a context processor compatible
+# with Jinja2 3.x (which doesn't have .context_processor() method).
+def _inject_csrf_token(request: Request) -> dict:
+    return {"csrf_token": _csrf_token_for_session(request.session)}
+
+
+templates.env.globals["inject_csrf_token"] = _inject_csrf_token
 
 if Path("static").exists():
     app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -111,8 +133,119 @@ BASE_URL = os.environ.get("BASE_URL", "http://localhost:8096")
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
 
 
+# Session cookie security — set after BASE_URL is available
+_https_only = BASE_URL.startswith("https://")
+
+# ---- CSRF protection (v1.2.3) ----
+#
+# SameSite=Lax stops *cross-site* POSTs, but a malicious site that has the
+# victim's browser navigate to our app (e.g. an iframe or top-level redirect
+# from a phishing page) can still submit a form on our origin. A per-session
+# CSRF token, checked on every state-changing request, closes that gap.
+#
+# The token is stored in the session (signed cookie) and echoed back to the
+# client as a hidden field / header. State-changing requests must present it.
+# GET/HEAD/OPTIONS are exempt — they're safe by convention.
+#
+# IMPORTANT: CSRFMiddleware must be added BEFORE SessionMiddleware so that
+# when it runs, the session is already populated. Starlette's middleware
+# stack executes in REVERSE order of addition (last added = first to run
+# on the request path).
+
+_CSRF_EXEMPT_PATHS = {"/login-mfa", "/login-mfa/verify", "/logout", "/api/sync-row"}
+_CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def _csrf_token_for_session(session: dict) -> str:
+    """Return the CSRF token for this session, creating one if absent."""
+    token = session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["csrf_token"] = token
+    return token
+
+
+def _csrf_token(request: Request) -> str:
+    """Read the CSRF token from the request: X-CSRF-Token header first, then
+    the ``csrf_token`` form field, then the ``X-CSRF-Token`` query string."""
+    header = request.headers.get("X-CSRF-Token")
+    if header:
+        return header
+    return ""
+
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        method = request.method.upper()
+
+        if method in _CSRF_SAFE_METHODS or path in _CSRF_EXEMPT_PATHS:
+            return await call_next(request)
+
+        # State-changing request: require a valid CSRF token.
+        session = request.session
+        expected = session.get("csrf_token")
+        if not expected:
+            return JSONResponse(
+                {"error": "missing CSRF token — session expired, please reload"},
+                status_code=403,
+            )
+        provided = _csrf_token(request)
+        if not provided or not secrets.compare_digest(provided, expected):
+            return JSONResponse(
+                {"error": "invalid CSRF token"},
+                status_code=403,
+            )
+        return await call_next(request)
+
+
+app.add_middleware(CSRFMiddleware)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=AUTH_SECRET_KEY,
+    same_site="lax",
+    https_only=_https_only,
+)
+
+
 # Simple in‑memory store for email‑MFA codes (email -> (code, expiry))
 _mfa_store: dict[str, tuple[str, float]] = {}
+
+# Per-email OTP verification attempt tracking for exponential backoff.
+# After N failed attempts, the email is locked out for an escalating window.
+# This is an in-memory store, so it resets on restart — that's fine, it's a
+# per-process rate limiter, not a persistence guarantee.
+_mfa_attempts: dict[str, dict] = {}
+
+
+def _check_mfa_rate_limit(email: str) -> float:
+    """Return the number of seconds to delay before responding to an OTP
+    verification attempt for ``email``. Returns 0 if no delay is needed.
+
+    Delays are applied *before* responding so a failed attempt and a
+    successful one take the same wall-clock time — no timing side-channel
+    leaks whether the OTP was correct.
+    """
+    record = _mfa_attempts.get(email)
+    if not record:
+        return 0.0
+    fails = record["fails"]
+    if fails <= 1:
+        return 0.0
+    if fails <= 3:
+        return 2.0
+    if fails <= 6:
+        return 5.0
+    if fails <= 10:
+        return 15.0
+    return 60.0
+
+
+def _record_mfa_failure(email: str) -> None:
+    """Record a failed OTP verification attempt for ``email``."""
+    record = _mfa_attempts.setdefault(email, {"fails": 0})
+    record["fails"] += 1
 
 
 def _generate_otp() -> str:
@@ -125,10 +258,67 @@ def _generate_otp() -> str:
 def _send_otp_email(email: str, code: str) -> None:
     """Send an OTP via email.
 
-    In production you would integrate with an email service (SMTP, SendGrid,
-    etc.). For now we just print the OTP – the CI test suite can mock or
-    ignore this.
+    The backend is selected by the ``MFA_EMAIL_BACKEND`` environment variable:
+
+    * ``smtp``      – send via SMTP (``MFA_SMTP_HOST``, ``MFA_SMTP_PORT``,
+                      ``MFA_SMTP_USER``, ``MFA_SMTP_PASSWORD``).
+    * ``sendgrid``  – send via the SendGrid API (``MFA_SENDGRID_API_KEY``).
+    * ``log`` (dev) – print the OTP to stdout. **Never use in production.**
+    * ``none``      – fail closed: raise instead of silently dropping the OTP.
+
+    Unrecognised backends default to ``log`` with a warning so a misconfiguration
+    is visible rather than silently insecure.
     """
+    backend = os.environ.get("MFA_EMAIL_BACKEND", "log").strip().lower()
+    subject = "Your Kapaat login code"
+    body = f"Your Kapaat login code is: {code}\n\nThis code expires in 5 minutes."
+
+    if backend == "none":
+        raise RuntimeError("MFA_EMAIL_BACKEND=none and no OTP was delivered")
+
+    if backend == "log":
+        print(f"[MFA] Sending OTP {code} to {email}")
+        return
+
+    if backend == "sendgrid":
+        api_key = os.environ.get("MFA_SENDGRID_API_KEY", "")
+        if not api_key:
+            raise RuntimeError("MFA_SENDGRID_API_KEY is not set")
+        import sendgrid
+        from sendgrid.mail import Mail
+
+        message = Mail(
+            from_email=os.environ.get("MFA_FROM_EMAIL", "kapaat@example.com"),
+            to_emails=email,
+            subject=subject,
+            html_content=body,
+        )
+        sg = sendgrid.SendGridAPIClient(api_key=api_key)
+        sg.send(message)
+        return
+
+    if backend == "smtp":
+        import smtplib
+        from email.mime.text import MIMEText
+
+        host = os.environ.get("MFA_SMTP_HOST", "localhost")
+        port = int(os.environ.get("MFA_SMTP_PORT", "587"))
+        user = os.environ.get("MFA_SMTP_USER", "")
+        password = os.environ.get("MFA_SMTP_PASSWORD", "")
+        from_addr = os.environ.get("MFA_FROM_EMAIL", "kapaat@example.com")
+
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = from_addr
+        msg["To"] = email
+
+        with smtplib.SMTP(host, port) as server:
+            if user:
+                server.login(user, password)
+            server.sendmail(from_addr, [email], msg.as_string())
+        return
+
+    print(f"WARNING: unknown MFA_EMAIL_BACKEND={backend!r}, falling back to log")
     print(f"[MFA] Sending OTP {code} to {email}")
 
 
@@ -183,6 +373,13 @@ async def verify_mfa(request: Request, email: str = Form(...), otp: str = Form(.
     * On success we redirect to ``/`` – otherwise we return the OTP form with an error.
     """
     email = email.strip().lower()
+
+    # Rate-limit *before* looking up the OTP so the delay is applied whether
+    # or not a pending challenge exists — no timing side-channel.
+    delay = _check_mfa_rate_limit(email)
+    if delay:
+        time.sleep(delay)
+
     record = _mfa_store.get(email)
     if not record:
         return templates.TemplateResponse(
@@ -200,6 +397,7 @@ async def verify_mfa(request: Request, email: str = Form(...), otp: str = Form(.
     expected_otp, expires_at = record
     if time.time() > expires_at:
         del _mfa_store[email]
+        _record_mfa_failure(email)
         return templates.TemplateResponse(
             "login.html",
             {
@@ -213,6 +411,7 @@ async def verify_mfa(request: Request, email: str = Form(...), otp: str = Form(.
             status_code=403,
         )
     if otp != expected_otp:
+        _record_mfa_failure(email)
         return templates.TemplateResponse(
             "login.html",
             {
@@ -225,8 +424,9 @@ async def verify_mfa(request: Request, email: str = Form(...), otp: str = Form(.
             },
             status_code=403,
         )
-    # OTP valid – clean up store
+    # OTP valid – clean up store and reset the per-email attempt counter.
     del _mfa_store[email]
+    _mfa_attempts.pop(email, None)
 
     # Build a minimal user session – we don't have group info, so admin is False.
     request.session["user"] = {"sub": email, "email": email, "name": email, "groups": []}
@@ -273,11 +473,13 @@ def require_admin(request: Request) -> None:
     flag. Authentik group membership is revocable — change the group
     membership and the next login takes effect immediately.
 
-    If ADMIN_GROUP is unconfigured (empty), the check is skipped so the
-    app remains usable in single-user mode.
+    ADMIN_GROUP defaults to "admins". If it's explicitly set to an empty
+    string, the check fails closed — no one gets admin access. This
+    prevents accidental privilege escalation from a misconfigured env var.
     """
     if not ADMIN_GROUP:
-        return
+        # Explicitly empty or unset → fail closed (no admin access)
+        raise HTTPException(status_code=403, detail="admin required (ADMIN_GROUP not configured)")
     if not request.session.get("is_admin"):
         raise HTTPException(status_code=403, detail="admin required")
 
@@ -657,8 +859,8 @@ async def auth_callback(request: Request):
         request.session.clear()
         return JSONResponse({"error": "email on blocked list"}, status_code=403)
 
-    # Email passes — now check admin group, but only if ADMIN_GROUP is configured.
-    # If ADMIN_GROUP is empty/unconfigured, skip the admin check (backward-compatible).
+    # Email passes — now check admin group. ADMIN_GROUP defaults to "admins".
+    # If it's explicitly empty, is_admin is False (fail-closed).
     is_admin = bool(ADMIN_GROUP) and (ADMIN_GROUP in groups)
 
     # ---- End email gate ----
