@@ -4,6 +4,7 @@ sync-row idempotency, and backup retention.
 These tests run against the FastAPI app with OIDC disabled (see conftest.py),
 so every route is open and the audit actor resolves to "anonymous".
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -31,10 +32,16 @@ def test_sync_row_idempotent(client):
     first_id = r.json()["item_id"]
 
     # Same sheet row, same item_id — must be skipped, not duplicated.
-    r = _sync_row_post(client, {
-        "bin_id": "BIN-A", "name": "Screwdriver", "category": "tools", "quantity": 3,
-        "item_id": first_id,
-    })
+    r = _sync_row_post(
+        client,
+        {
+            "bin_id": "BIN-A",
+            "name": "Screwdriver",
+            "category": "tools",
+            "quantity": 3,
+            "item_id": first_id,
+        },
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
@@ -42,9 +49,7 @@ def test_sync_row_idempotent(client):
     assert body["skipped"] is True
 
     with _conn(client) as conn:
-        count = conn.execute(
-            "SELECT COUNT(*) FROM items WHERE item_id = ?", (first_id,)
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM items WHERE item_id = ?", (first_id,)).fetchone()[0]
     assert count == 1
 
 
@@ -52,9 +57,7 @@ def test_sync_row_create_logs_audit(client):
     """Every sync-row insert writes an audit_log row."""
     _sync_row_post(client, {"bin_id": "BIN-B", "name": "Hammer", "category": "tools", "quantity": 2})
     with _conn(client) as conn:
-        rows = conn.execute(
-            "SELECT action, item_id FROM audit_log WHERE action = 'sync-row-create'"
-        ).fetchall()
+        rows = conn.execute("SELECT action, item_id FROM audit_log WHERE action = 'sync-row-create'").fetchall()
     assert len(rows) == 1
     assert rows[0][1] is not None
 
@@ -66,19 +69,31 @@ def test_update_item_optimistic_lock_conflict(client, admin_client):
     item_id = r.json()["item_id"]
 
     # First edit succeeds and bumps the version.
-    r = admin_client.patch(f"/update-item/{item_id}", json={
-        "name": "Wrench", "category": "tools", "quantity": 1, "tags": "",
-        "version": 1,
-    })
+    r = admin_client.patch(
+        f"/update-item/{item_id}",
+        json={
+            "name": "Wrench",
+            "category": "tools",
+            "quantity": 1,
+            "tags": "",
+            "version": 1,
+        },
+    )
     assert r.status_code == 200
     new_version = r.json()["new_version"]
     assert new_version == 2
 
     # Second edit uses the stale version — must be rejected.
-    r = admin_client.patch(f"/update-item/{item_id}", json={
-        "name": "Wrench", "category": "tools", "quantity": 1, "tags": "",
-        "version": 1,
-    })
+    r = admin_client.patch(
+        f"/update-item/{item_id}",
+        json={
+            "name": "Wrench",
+            "category": "tools",
+            "quantity": 1,
+            "tags": "",
+            "version": 1,
+        },
+    )
     assert r.status_code == 409
     assert "stale" in r.json()["error"].lower()
 
@@ -88,9 +103,15 @@ def test_update_item_requires_version(client, admin_client):
     r = _sync_row_post(client, {"bin_id": "BIN-D", "name": "Saw", "category": "tools", "quantity": 1})
     item_id = r.json()["item_id"]
 
-    r = admin_client.patch(f"/update-item/{item_id}", json={
-        "name": "Saw", "category": "tools", "quantity": 1, "tags": "",
-    })
+    r = admin_client.patch(
+        f"/update-item/{item_id}",
+        json={
+            "name": "Saw",
+            "category": "tools",
+            "quantity": 1,
+            "tags": "",
+        },
+    )
     assert r.status_code == 400
     assert "version" in r.json()["error"].lower()
 
@@ -103,9 +124,7 @@ def test_delete_item_logs_audit(client, admin_client):
     assert r.status_code == 200
 
     with _conn(client) as conn:
-        rows = conn.execute(
-            "SELECT action, item_id FROM audit_log WHERE action = 'delete-item'"
-        ).fetchall()
+        rows = conn.execute("SELECT action, item_id FROM audit_log WHERE action = 'delete-item'").fetchall()
     assert any(row[1] == item_id for row in rows)
 
 

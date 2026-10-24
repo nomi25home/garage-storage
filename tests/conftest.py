@@ -3,6 +3,7 @@
 Redirects DB_PATH, PHOTOS_DIR and the backup-retention directory to a
 temporary directory so the test suite runs without /data being writable.
 """
+
 from __future__ import annotations
 
 import json
@@ -81,9 +82,7 @@ def admin_client():
             },
             "is_admin": True,
         }
-        cookie_val = signer.sign(
-            b64encode(json.dumps(session_data).encode("utf-8"))
-        ).decode("utf-8")
+        cookie_val = signer.sign(b64encode(json.dumps(session_data).encode("utf-8"))).decode("utf-8")
         c.cookies.set("session", cookie_val)
         yield c
 
