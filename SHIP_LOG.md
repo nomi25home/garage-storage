@@ -5,6 +5,31 @@ Format: one entry per shipped change, most recent at top.
 
 ---
 
+## 2026-10-24 — v1.2.3: CSO hardening fixes
+
+**PR:** #4 (`ship-cso-fixes-20261024`) — https://github.com/nomi25home/kapaat/pull/4
+**Base:** main | **Version:** 1.2.2 → 1.2.3
+
+### CSO findings closed
+- **Fix 4** — OTP brute-force protection: per-email exponential backoff on `/login-mfa/verify` (0→2→5→15→60s), applied before responding to prevent timing side-channels
+- **Fix 6** — CSRF protection on all state-changing routes: `CSRFMiddleware` validates `X-CSRF-Token` header against per-session token; exempt paths: `/login-mfa`, `/login-mfa/verify`, `/logout`, `/api/sync-row`
+- **Fix 7** — Fail startup if `AUTH_SECRET_KEY` is default/empty: `RuntimeError` raised at module load for known bad values
+
+### Related fixes
+- Session cookie security: `SameSite=Lax`, `https_only` based on `BASE_URL`
+- `require_admin()` fail-closed when `ADMIN_GROUP` is empty
+- OTP email backend configurable via `MFA_EMAIL_BACKEND` (`smtp`, `sendgrid`, `log`, `none`)
+
+### Tests
+`tests/test_hardening.py` — 7/7 pass (unchanged test suite, all pass)
+
+### Verification
+- `pytest tests/` — 7 passed
+- `ruff check .` — all checks passed
+- `ruff format --check .` — all checks passed
+
+---
+
 ## 2026-10-22 — P2 hardening: close 3 P1 defects from CEO review
 
 **PR:** #2 (`ship-p2-hardening-20261022`) — https://github.com/nomi25home/kapaat/pull/2
