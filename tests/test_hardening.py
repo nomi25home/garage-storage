@@ -50,7 +50,7 @@ def test_sync_row_idempotent(client):
 
 def test_sync_row_create_logs_audit(client):
     """Every sync-row insert writes an audit_log row."""
-    r = _sync_row_post(client, {"bin_id": "BIN-B", "name": "Hammer", "category": "tools", "quantity": 2})
+    _sync_row_post(client, {"bin_id": "BIN-B", "name": "Hammer", "category": "tools", "quantity": 2})
     with _conn(client) as conn:
         rows = conn.execute(
             "SELECT action, item_id FROM audit_log WHERE action = 'sync-row-create'"

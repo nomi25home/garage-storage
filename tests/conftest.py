@@ -10,7 +10,7 @@ import os
 import tempfile
 from base64 import b64encode
 
-# import pytest  # unused in fixtures
+import pytest
 
 # Must happen BEFORE app is imported: app.py reads these env vars at module load.
 _TMP = tempfile.mkdtemp(prefix="kapaat-test-")
