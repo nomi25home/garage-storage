@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t.app_name }} — Login</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230f1923'/><rect x='5' y='5' width='22' height='22' rx='2' fill='none' stroke='%234cd7f6' stroke-width='2'/><line x1='5' y1='16' x2='27' y2='16' stroke='%234cd7f6' stroke-width='1.5'/><line x1='16' y1='5' x2='16' y2='27' stroke='%234cd7f6' stroke-width='1.2'/><circle cx='12.5' cy='11.5' r='1.5' fill='%234cd7f6'/><circle cx='19.5' cy='11.5' r='1.5' fill='%234cd7f6'/><circle cx='12.5' cy='21.5' r='1.5' fill='%234cd7f6' opacity='.6'/><circle cx='19.5' cy='21.5' r='1.5' fill='%234cd7f6' opacity='.6'></svg>">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#4cd7f6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kapaat">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b1326; --lowest: #060e20; --low: #131b2e; --cont: #171f33; --high: #222a3d; --highest: #2d3449; --bright: #31394d;
+  --on: #dae2fd; --on-var: #bcc9cd; --outline: #869397; --outline-var: #3d494c;
+  --primary: #4cd7f6; --primary-cont: #06b6d4; --on-primary-cont: #00424f;
+  --amber: #f5c26b; --green: #4edea3; --error: #ffb4ab;
+  --mono: "JetBrains Mono", ui-monospace, monospace; --sans: "Geist", system-ui, sans-serif;
+  --strip-h: 42px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--on); font: 13px/18px var(--sans); }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--primary); text-decoration: none; }
+.ms { font-family: "Material Symbols Outlined"; font-size: 18px; line-height: 1; vertical-align: middle; font-weight: normal; font-style: normal; display: inline-block; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--outline); }
+
+header { position: sticky; top: 0; z-index: 30; height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: var(--cont); border-bottom: 1px solid var(--outline-var); }
+.brand { display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; text-decoration: none; }
+.btn { height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 4px; border-radius: 3px; border: 1px solid var(--outline-var); background: var(--high); cursor: pointer; font: 600 11px var(--mono); letter-spacing: .02em; white-space: nowrap; }
+.btn:hover { background: var(--bright); }
+.btn.primary { background: var(--primary-cont); color: var(--on-primary-cont); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.08); }
+.card { background: var(--cont); border: 1px solid var(--outline-var); border-radius: 3px; padding: 24px; max-width: 400px; width: 100%; }
+.card h2 { margin: 0 0 16px; font-size: 20px; font-weight: 600; }
+.label { display: block; font: 600 11px var(--mono); letter-spacing: .04em; margin-bottom: 4px; color: var(--on-var); }
+.in { width: 100%; height: 32px; padding: 0 10px; background: var(--lowest); border: 1px solid var(--outline-var); border-radius: 3px; font: 12px var(--mono); }
+.in:focus { outline: none; border-color: var(--primary); }
+.form-group { margin-bottom: 16px; }
+.form-actions { display: flex; gap: 8px; margin-top: 24px; }
+.err { color: var(--error); font: 12px var(--mono); margin-bottom: 12px; }
+.spacer { flex: 1; }
+.pill { padding: 2px 6px; border-radius: 3px; background: var(--high); border: 1px solid var(--outline-var); font: 600 10px var(--mono); color: var(--on-var); }
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f8fafc; --lowest: #ffffff; --low: #f1f5f9;
+    --cont: #e2e8f0; --high: #cbd5e1; --highest: #94a3b8; --bright: #64748b;
+    --on: #0f172a; --on-var: #475569; --outline: #94a3b8; --outline-var: #cbd5e1;
+    --primary: #0891b2; --primary-cont: #0e7490; --on-primary-cont: #ffffff;
+    --amber: #b45309; --green: #166534; --error: #b91c1c;
+  }
+}
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" style="flex-shrink:0"><rect width="32" height="32" rx="6" fill="%230f1923"/><rect x="5" y="5" width="22" height="22" rx="2" fill="none" stroke="#4cd7f6" stroke-width="2"/><line x1="5" y1="16" x2="27" y2="16" stroke="#4cd7f6" stroke-width="1.5"/><line x1="16" y1="5" x2="16" y2="27" stroke="#4cd7f6" stroke-width="1.2"/><circle cx="12.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="19.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="12.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/><circle cx="19.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/></svg><span>{{ t.app_name }}</span></a>
+  <span class="pill mono" style="font-size:10px;color:var(--primary);margin-left:8px">v{{ VERSION }}</span>
+</header>
+
+<main style="display:flex;align-items:center;justify-content:center;padding:40px 20px;min-height:calc(100vh - 48px);">
+  <div class="card">
+    {% if error %}
+    <div class="err">{{ error }}</div>
+    {% endif %}
+
+    {% if step == 'otp' %}
+    <h2>Enter OTP</h2>
+    <p class="muted mono" style="font-size:12px;margin-bottom:16px">Sent to <strong>{{ email }}</strong></p>
+    <form action='/login-mfa/verify' method='post'>
+      <input type='hidden' name='email' value='{{ email }}'>
+      <div class="form-group">
+        <label class="label">OTP</label>
+        <input class="in" type='text' name='otp' required autocomplete="one-time-code" style="letter-spacing:4px;text-align:center">
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" type='submit'><span class="ms">verified</span> Verify</button>
+        <a class="btn" href="/login"><span class="ms">arrow_back</span> Back</a>
+      </div>
+    </form>
+    {% else %}
+    <h2>{{ t.login_email_title or 'Login' }}</h2>
+    <form action='/login-mfa' method='post'>
+      <div class="form-group">
+        <label class="label">{{ t.login_email_label or 'Email' }}</label>
+        <input class="in" type='email' name='email' required autocomplete="email">
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" type='submit'><span class="ms">send</span> Send OTP</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</main>
+</body>
+</html>

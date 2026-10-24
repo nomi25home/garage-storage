@@ -139,29 +139,36 @@ async def login_mfa(request: Request, email: str = Form(...)):
     * If the email is not in the ALLOWED_EMAILS whitelist, we reject immediately.
     * If the email is whitelisted, we generate a one‑time OTP, store it in
       ``_mfa_store`` with a short expiration, and send it via ``_send_otp_email``.
-    * Afterwards we render a simple HTML form to collect the OTP.
+    * Afterwards we render the OTP entry form.
     """
     email = email.strip().lower()
     allowed = [e.strip().lower() for e in os.getenv("ALLOWED_EMAILS", "").split(",") if e.strip()]
     if allowed and email not in allowed:
-        return JSONResponse({"error": "email not allowed for MFA"}, status_code=403)
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "t": _LOCALE,
+                "VERSION": VERSION,
+                "error": "email not allowed for MFA",
+            },
+            status_code=403,
+        )
 
     otp = _generate_otp()
     expires_at = time.time() + 300  # 5 minutes
     _mfa_store[email] = (otp, expires_at)
     _send_otp_email(email, otp)
     # Render OTP entry form
-    return HTMLResponse(
-        f"""
-        <html><body>
-        <h2>Enter OTP</h2>
-        <form action='/login-mfa/verify' method='post'>
-            <input type='hidden' name='email' value='{email}'>
-            <label>OTP: <input type='text' name='otp' required></label>
-            <button type='submit'>Verify</button>
-        </form>
-        </body></html>
-        """
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "t": _LOCALE,
+            "VERSION": VERSION,
+            "step": "otp",
+            "email": email,
+        },
     )
 
 
@@ -173,18 +180,51 @@ async def verify_mfa(request: Request, email: str = Form(...), otp: str = Form(.
     * If the OTP matches and hasn't expired, we create a session for the user
       (the same session shape used by the OIDC flow) and mark ``is_admin``
       based on the ADMIN_GROUP membership (if any).
-    * On success we redirect to ``/`` – otherwise we return a 403 JSON error.
+    * On success we redirect to ``/`` – otherwise we return the OTP form with an error.
     """
     email = email.strip().lower()
     record = _mfa_store.get(email)
     if not record:
-        return JSONResponse({"error": "no pending MFA for this email"}, status_code=403)
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "t": _LOCALE,
+                "VERSION": VERSION,
+                "step": "otp",
+                "email": email,
+                "error": "no pending MFA for this email",
+            },
+            status_code=403,
+        )
     expected_otp, expires_at = record
     if time.time() > expires_at:
         del _mfa_store[email]
-        return JSONResponse({"error": "OTP expired"}, status_code=403)
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "t": _LOCALE,
+                "VERSION": VERSION,
+                "step": "otp",
+                "email": email,
+                "error": "OTP expired",
+            },
+            status_code=403,
+        )
     if otp != expected_otp:
-        return JSONResponse({"error": "invalid OTP"}, status_code=403)
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "t": _LOCALE,
+                "VERSION": VERSION,
+                "step": "otp",
+                "email": email,
+                "error": "invalid OTP",
+            },
+            status_code=403,
+        )
     # OTP valid – clean up store
     del _mfa_store[email]
 
@@ -547,22 +587,18 @@ async def api_get_items(search: str = ""):
 async def login(request: Request):
     """Login entry point.
     * If Authentik OIDC is configured, redirect there.
-    * Otherwise render a simple email + OTP form.
+    * Otherwise render a styled email + OTP form matching the dashboard.
     """
     if AUTHENTIK_CLIENT_ID:
         redirect_uri = BASE_URL.rstrip("/") + "/auth/callback"
         return await oauth.authentik.authorize_redirect(request, redirect_uri)
-    # Render a minimal HTML form for email‑MFA login
-    return HTMLResponse(
-        """
-        <html><body>
-        <h2>Login (email + OTP)</h2>
-        <form action='/login-mfa' method='post'>
-            <label>Email: <input type='email' name='email' required></label>
-            <button type='submit'>Send OTP</button>
-        </form>
-        </body></html>
-        """
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "t": _LOCALE,
+            "VERSION": VERSION,
+        },
     )
 
 

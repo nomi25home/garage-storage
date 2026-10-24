@@ -26,8 +26,9 @@ if ('serviceWorker' in navigator) {
   --bg: #0b1326; --lowest: #060e20; --low: #131b2e; --cont: #171f33; --high: #222a3d; --highest: #2d3449; --bright: #31394d;
   --on: #dae2fd; --on-var: #bcc9cd; --outline: #869397; --outline-var: #3d494c;
   --primary: #4cd7f6; --primary-cont: #06b6d4; --on-primary-cont: #00424f;
-  --secondary: #c0c1ff; --tertiary: #4edea3; --amber: #f5c26b; --error: #ffb4ab;
+  --amber: #f5c26b; --green: #4edea3; --error: #ffb4ab;
   --mono: "JetBrains Mono", ui-monospace, monospace; --sans: "Geist", system-ui, sans-serif;
+  --strip-h: 42px;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--on); font: 13px/18px var(--sans); }
@@ -117,8 +118,9 @@ select.in { cursor: pointer; }
 .err { color: var(--error); font: 12px var(--mono); }
 
 #toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: grid; gap: 8px; }
-.toast { min-width: 240px; max-width: 400px; padding: 10px 12px; border-radius: 3px; background: var(--highest); border: 1px solid var(--outline-var); border-left: 3px solid var(--tertiary); font: 12px var(--mono); box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+.toast { min-width: 240px; max-width: 400px; padding: 10px 12px; border-radius: 3px; background: var(--highest); border: 1px solid var(--outline-var); border-left: 3px solid var(--green); font: 12px var(--mono); box-shadow: 0 8px 20px rgba(0,0,0,.4); }
 .toast.bad { border-left-color: var(--error); }
+.toast.warn { border-left-color: var(--amber); }
 
 /* single-bin mobile view */
 .bin-page { max-width: 520px; margin: 0 auto; padding: 16px; }
@@ -131,6 +133,16 @@ select.in { cursor: pointer; }
 @media (max-width: 600px) {
   header { gap: 8px; padding: 0 12px; }
   .col-zone { display: none; }
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f8fafc; --lowest: #ffffff; --low: #f1f5f9;
+    --cont: #e2e8f0; --high: #cbd5e1; --highest: #94a3b8; --bright: #64748b;
+    --on: #0f172a; --on-var: #475569; --outline: #94a3b8; --outline-var: #cbd5e1;
+    --primary: #0891b2; --primary-cont: #0e7490; --on-primary-cont: #ffffff;
+    --amber: #b45309; --green: #166534; --error: #b91c1c;
+  }
 }
 </style>
 </head>
