@@ -800,6 +800,7 @@ async def login(request: Request):
             "request": request,
             "t": _LOCALE,
             "VERSION": VERSION,
+            "csrf_token": _csrf_token_for_session(request.session),
         },
     )
 

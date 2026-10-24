@@ -1,0 +1,12 @@
+## Summary
+
+This PR brings the repository to version **1.2.2** with the following highlights:
+
+- Multi‑user access control (email gate, admin group, back‑off, etc.)
+- Security hardening (rate‑limit back‑off, audit‑log fixes)
+- Test suite now passes (7/7) and ruff linting is clean.
+
+The changes also include a small cleanup of an unused pytest import in the test suite and removal of an unused variable in `tests/test_hardening.py`.
+
+---
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
