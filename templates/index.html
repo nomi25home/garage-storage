@@ -61,6 +61,8 @@ header { position: sticky; top: 0; z-index: 30; height: 48px; display: flex; ali
 .icon-btn:hover { background: var(--bright); color: var(--on); }
 
 .strip { padding: 10px 20px; background: var(--low); border-bottom: 1px solid var(--outline-var); }
+.banner { padding: 8px 20px; background: var(--amber); color: #1a1206; font: 600 12px var(--mono); display: flex; align-items: center; gap: 10px; }
+.banner .x { margin-left: auto; cursor: pointer; opacity: .7; }
 .kpis { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; font: 600 11px var(--mono); color: var(--on-var); }
 .kpis strong { font-weight: 600; }
 
@@ -138,6 +140,7 @@ select.in { cursor: pointer; }
 <!-- ── Mobile single-bin scan landing page ── -->
 <header>
   <a class="brand" href="/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" style="flex-shrink:0"><rect width="32" height="32" rx="6" fill="%230f1923"/><rect x="5" y="5" width="22" height="22" rx="2" fill="none" stroke="#4cd7f6" stroke-width="2"/><line x1="5" y1="16" x2="27" y2="16" stroke="#4cd7f6" stroke-width="1.5"/><line x1="16" y1="5" x2="16" y2="27" stroke="#4cd7f6" stroke-width="1.2"/><circle cx="12.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="19.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="12.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/><circle cx="19.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/></svg><span>{{ t.app_name }}</span></a>
+  <span class="pill mono" style="font-size:10px;color:var(--primary);margin-left:8px">v{{ VERSION }}</span>
   <div class="spacer"></div>
   <a href="/" class="btn"><span class="ms">arrow_back</span>{{ t.bin.all_inventory }}</a>
 </header>
@@ -192,6 +195,7 @@ select.in { cursor: pointer; }
 <!-- ── Main SPA dashboard ── -->
 <header>
   <a class="brand" href="/" onclick="return goHome(event)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" style="flex-shrink:0"><rect width="32" height="32" rx="6" fill="%230f1923"/><rect x="5" y="5" width="22" height="22" rx="2" fill="none" stroke="#4cd7f6" stroke-width="2"/><line x1="5" y1="16" x2="27" y2="16" stroke="#4cd7f6" stroke-width="1.5"/><line x1="16" y1="5" x2="16" y2="27" stroke="#4cd7f6" stroke-width="1.2"/><circle cx="12.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="19.5" cy="11.5" r="1.5" fill="#4cd7f6"/><circle cx="12.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/><circle cx="19.5" cy="21.5" r="1.5" fill="#4cd7f6" opacity=".6"/></svg><span>{{ t.app_name }}</span></a>
+  <span class="pill mono" style="font-size:10px;color:var(--primary);margin-left:8px">v{{ VERSION }}</span>
   <div class="crumb"><button class="pill" id="crumbCount" onclick="openAllBins()" title="{{ t.nav.view_all_boxes }}" style="cursor:pointer;background:var(--high);border:1px solid var(--outline-var);border-radius:3px;padding:2px 6px;font:600 11px var(--mono);color:var(--on-var)">…</button></div>
   <div class="search"><span class="ms">search</span><input id="q" placeholder="{{ t.search_placeholder }}" autocomplete="off"><kbd>/</kbd></div>
   <div class="spacer"></div>
@@ -209,6 +213,8 @@ select.in { cursor: pointer; }
     {% endif %}
   {% endif %}
 </header>
+
+<div id="conflictBanner" class="banner" hidden></div>
 
 <section class="strip" id="strip">
   <div class="kpis" id="kpis"><span class="muted mono">{{ t.status.loading }}</span></div>
@@ -306,6 +312,35 @@ async function api(path, opts = {}) {
   return body;
 }
 
+async function loadConflicts() {
+  // Sheets-vs-app mismatches surface here, not silently. A banner is cheap;
+  // the real fix is the caller resolving the row, but the user must SEE it.
+  try {
+    const { conflicts } = await api("/api/sync-conflicts");
+    const banner = $("conflictBanner");
+    if (!conflicts || !conflicts.length) {
+      banner.hidden = true;
+      banner.innerHTML = "";
+      return;
+    }
+    banner.hidden = false;
+    banner.innerHTML = `⚠ ${conflicts.length} unresolved sync conflict(s) — Sheets and the app disagree. ` +
+      conflicts.map(c => `<button class="pill" onclick="resolveConflict(${c.id})" title="Mark resolved">${esc(c.bin_id || '?')} / ${esc(c.name || '?')} (${c.source})</button>`).join("") +
+      ` <span class="x" onclick="this.parentElement.hidden=true" title="Dismiss">✕</span>`;
+  } catch (e) {
+    // Banner is best-effort; a broken endpoint must not break the page load.
+  }
+}
+
+async function resolveConflict(conflictId) {
+  try {
+    await api("/api/sync-conflicts/" + conflictId + "/resolve", { method: "POST" });
+    await loadConflicts();
+  } catch (e) {
+    toast("Resolve failed: " + e.message, true);
+  }
+}
+
 async function load() {
   try {
     const [bins, items, colors] = await Promise.all([
@@ -319,6 +354,7 @@ async function load() {
   } catch (e) {
     toast("Load failed: " + e.message, true);
   }
+  loadConflicts();
 }
 
 function zones() {
@@ -930,7 +966,7 @@ function startEditItem(itemId) {
   if (!item) return;
   editingItemId = itemId;
   editingTags = [...parseTags(item.tags)];
-  editingVals = {name: item.name, category: item.category, quantity: item.quantity};
+  editingVals = {name: item.name, category: item.category, quantity: item.quantity, __version__: item.version};
   renderDrawer();
 }
 
@@ -944,16 +980,22 @@ async function saveItemEdit(itemId) {
   const {name, category, quantity} = editingVals;
   if (!name || !category) { toast('Name and category are required', true); return; }
   try {
-    await api(`/update-item/${itemId}`, {
+    const res = await api(`/update-item/${itemId}`, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name, category, quantity, tags: editingTags.join(',')})
+      body: JSON.stringify({name, category, quantity, tags: editingTags.join(','), version: editingVals.__version__})
     });
     toast(`${name} updated`);
     editingItemId = null; editingTags = []; editingVals = {name:'',category:'',quantity:1};
     await load();
     if (selected) renderDrawer();
-  } catch(e) { toast(L.toast.save_failed + e.message, true); }
+  } catch(e) {
+    if (e.status === 409) {
+      toast('Stale version — another user edited this item first. Re-fetch and retry.', true);
+    } else {
+      toast(L.toast.save_failed + (e.message || e), true);
+    }
+  }
 }
 
 function toggleEditTag(tag) {
