@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
-
 
 def _db_path(client):
     import app as app_module
@@ -113,11 +111,13 @@ def test_delete_item_logs_audit(client, admin_client):
 
 def test_non_admin_denied_on_mutating_route(client, admin_client):
     """A session without is_admin=True must be rejected on mutating routes."""
+    import json
+    from base64 import b64encode
+
     from fastapi.testclient import TestClient
     from itsdangerous import TimestampSigner
-    from base64 import b64encode
+
     import app as app_module
-    import json
 
     signer = TimestampSigner(app_module.AUTH_SECRET_KEY)
     cookie = signer.sign(
